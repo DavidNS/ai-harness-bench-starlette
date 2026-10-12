@@ -1,0 +1,22 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "test_over_limit_without_content_length, test_streaming_body_counted and test_multipart_counted_including_overhead check the 413 and the 'Content Too Large' text/plain body, and the multipart test checks that encoding overhead is counted."
+    },
+    {
+      "criterion": "ACC2",
+      "note": "test_declared_content_length_rejected_before_reading checks the 413 and that the server's receive was never called. Also test_understated_content_length_does_not_bypass, test_exactly_at_limit_allowed, test_invalid_content_length_ignored_but_limit_applies, test_nested_declared_content_length_rejected, test_nested_overrides_limit_raising and test_nested_overrides_limit_lowering."
+    },
+    {
+      "criterion": "ACC3",
+      "note": "test_no_second_response_when_response_started checks that only http.response.start was sent and that receive raised. test_receive_keeps_raising_after_limit_crossed checks the stream stays stopped."
+    },
+    {
+      "criterion": "ACC7",
+      "note": "test_not_exported_from_package_root. Nothing was added to starlette/__init__.py."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Fixed the two failures (test_nested_overrides_limit_raising on asyncio and trio) but have not re-run the tests. The outermost middleware used to reject a declared Content-Length over its own limit before routing, so an inner limit could never raise the outer one. It now checks the declared length lazily on each receive call, against the current shared limit, before reading from the server. A nested instance still rejects up front against its own limit. An oversized declared length is therefore rejected when the app first reads the body, not before the app is called. I updated the test for the declared-length check to match, and changed the `run` helper in the test file to consume the chunk list in place."
+}

@@ -1,0 +1,331 @@
+diff --git a/starlette/middleware/body_limit.py b/starlette/middleware/body_limit.py
+new file mode 100644
+index 0000000..e1625de
+--- /dev/null
++++ b/starlette/middleware/body_limit.py
+@@ -0,0 +1,92 @@
++from __future__ import annotations
++
++from typing import Any
++
++from starlette.datastructures import Headers
++from starlette.responses import PlainTextResponse
++from starlette.types import ASGIApp, Message, Receive, Scope, Send
++
++SCOPE_KEY = "starlette.body_limit"
++
++
++class RequestBodyLimitExceeded(Exception):
++    def __init__(self, max_body_size: int) -> None:
++        super().__init__(f"Request body exceeded the limit of {max_body_size} bytes")
++        self.max_body_size = max_body_size
++
++
++class RequestBodyLimitMiddleware:
++    """
++    Limit the total size of the request body.
++
++    The limit state is shared through the scope, so a nested instance (e.g. from a
++    `Route(max_body_size=...)`) overrides the limit of the outer one instead of
++    counting the same bytes twice.
++    """
++
++    def __init__(self, app: ASGIApp, max_body_size: int) -> None:
++        self.app = app
++        self.max_body_size = max_body_size
++
++    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
++        if scope["type"] != "http":
++            await self.app(scope, receive, send)
++            return
++
++        state: dict[str, Any] | None = scope.get(SCOPE_KEY)
++        if state is not None:
++            # Nested: the outer instance already counts and handles errors.
++            state["limit"] = self.max_body_size
++            if self._declared_too_large(scope):
++                await self._send_413(state, send)
++                return
++            await self.app(scope, receive, send)
++            return
++
++        state = {"limit": self.max_body_size, "received": 0, "response_started": False}
++        scope[SCOPE_KEY] = state
++
++        declared = self._declared_length(scope)
++
++        async def receive_wrapper() -> Message:
++            # Checked on read, not up front, so an inner limit can still raise the outer one.
++            if state["received"] > state["limit"] or (declared is not None and declared > state["limit"]):
++                raise RequestBodyLimitExceeded(state["limit"])
++            message = await receive()
++            if message["type"] == "http.request":
++                state["received"] += len(message.get("body", b""))
++                if state["received"] > state["limit"]:
++                    raise RequestBodyLimitExceeded(state["limit"])
++            return message
++
++        async def send_wrapper(message: Message) -> None:
++            if message["type"] == "http.response.start":
++                state["response_started"] = True
++            await send(message)
++
++        try:
++            await self.app(scope, receive_wrapper, send_wrapper)
++        except RequestBodyLimitExceeded:
++            await self._send_413(state, send_wrapper)
++
++    def _declared_too_large(self, scope: Scope) -> bool:
++        declared = self._declared_length(scope)
++        return declared is not None and declared > self.max_body_size
++
++    @staticmethod
++    def _declared_length(scope: Scope) -> int | None:
++        content_length = Headers(scope=scope).get("content-length")
++        try:
++            return None if content_length is None else int(content_length)
++        except ValueError:
++            return None
++
++    async def _send_413(self, state: dict[str, Any], send: Send) -> None:
++        if state["response_started"]:
++            return
++        response = PlainTextResponse("Content Too Large", status_code=413)
++        await response({"type": "http"}, _no_receive, send)
++
++
++async def _no_receive() -> Message:  # pragma: no cover
++    raise RuntimeError("receive should not be called")
+diff --git a/tests/middleware/test_body_limit.py b/tests/middleware/test_body_limit.py
+new file mode 100644
+index 0000000..44bfdfd
+--- /dev/null
++++ b/tests/middleware/test_body_limit.py
+@@ -0,0 +1,227 @@
++from __future__ import annotations
++
++from collections.abc import Sequence
++from typing import Any
++
++import pytest
++
++import starlette
++from starlette.middleware.body_limit import RequestBodyLimitExceeded, RequestBodyLimitMiddleware
++from starlette.requests import Request
++from starlette.responses import PlainTextResponse
++from starlette.types import Message, Receive, Scope, Send
++
++pytestmark = pytest.mark.anyio
++
++
++async def run(
++    app: object,
++    chunks: Sequence[bytes],
++    headers: Sequence[tuple[bytes, bytes]] = (),
++    scope_type: str = "http",
++) -> list[Message]:
++    pending = chunks  # type: ignore[assignment]  # consumed in place so tests can see reads
++    sent: list[Message] = []
++
++    async def receive() -> Message:
++        if pending:
++            body = pending.pop(0)
++            return {"type": "http.request", "body": body, "more_body": bool(pending)}
++        return {"type": "http.disconnect"}
++
++    async def send(message: Message) -> None:
++        sent.append(message)
++
++    scope: Scope = {"type": scope_type, "method": "POST", "path": "/", "headers": list(headers)}
++    await app(scope, receive, send)  # type: ignore[operator]
++    return sent
++
++
++def cl(n: int) -> list[tuple[bytes, bytes]]:
++    return [(b"content-length", str(n).encode())]
++
++
++async def read_all_app(scope: Scope, receive: Receive, send: Send) -> None:
++    body = await Request(scope, receive).body()
++    await PlainTextResponse(f"len={len(body)}")(scope, receive, send)
++
++
++def status(sent: list[Message]) -> int:
++    return next(m["status"] for m in sent if m["type"] == "http.response.start")
++
++
++def body_of(sent: list[Message]) -> bytes:
++    return b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
++
++
++async def test_exactly_at_limit_allowed() -> None:
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    sent = await run(app, [b"12345", b"67890"], cl(10))
++    assert status(sent) == 200
++    assert body_of(sent) == b"len=10"
++
++
++async def test_over_limit_without_content_length() -> None:
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    sent = await run(app, [b"12345", b"678901"])
++    assert status(sent) == 413
++    assert body_of(sent) == b"Content Too Large"
++    start = next(m for m in sent if m["type"] == "http.response.start")
++    assert (b"content-type", b"text/plain; charset=utf-8") in start["headers"]
++
++
++async def test_understated_content_length_does_not_bypass() -> None:
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    sent = await run(app, [b"x" * 50], cl(1))
++    assert status(sent) == 413
++
++
++async def test_invalid_content_length_ignored_but_limit_applies() -> None:
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    bad = [(b"content-length", b"abc")]
++    assert status(await run(app, [b"x" * 5], bad)) == 200
++    assert status(await run(app, [b"x" * 50], bad)) == 413
++
++
++async def test_declared_content_length_rejected_before_reading() -> None:
++    chunks = [b"x" * 100]
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    sent = await run(app, chunks, cl(100))
++    assert status(sent) == 413
++    assert chunks == [b"x" * 100]  # the server's receive was never called
++
++
++async def test_streaming_body_counted() -> None:
++    app = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    sent = await run(app, [b"abc"] * 4)
++    assert status(sent) == 413
++
++
++async def test_disconnect_message_passes_through() -> None:
++    seen: list[Message] = []
++
++    async def app_(scope: Scope, receive: Receive, send: Send) -> None:
++        seen.append(await receive())
++        await PlainTextResponse("ok")(scope, receive, send)
++
++    app = RequestBodyLimitMiddleware(app_, max_body_size=10)
++    sent = await run(app, [])
++    assert seen == [{"type": "http.disconnect"}]
++    assert status(sent) == 200
++
++
++async def test_non_http_scope_passthrough() -> None:
++    calls: list[str] = []
++
++    async def app_(scope: Scope, receive: Receive, send: Send) -> None:
++        calls.append(scope["type"])
++
++    app = RequestBodyLimitMiddleware(app_, max_body_size=1)
++    await run(app, [], scope_type="lifespan")
++    assert calls == ["lifespan"]
++
++
++async def test_multipart_counted_including_overhead() -> None:
++    boundary = b"boundary"
++    payload = b"a" * 20
++    body = (
++        b"--boundary\r\n"
++        b'Content-Disposition: form-data; name="f"; filename="f.txt"\r\n'
++        b"Content-Type: text/plain\r\n\r\n" + payload + b"\r\n--boundary--\r\n"
++    )
++    assert len(body) > len(payload) + 20
++    headers = [(b"content-type", b"multipart/form-data; boundary=" + boundary)]
++
++    async def form_app(scope: Scope, receive: Receive, send: Send) -> None:
++        async with Request(scope, receive).form() as form:
++            upload: Any = form["f"]
++            size = len(await upload.read())
++        await PlainTextResponse(str(size))(scope, receive, send)
++
++    # Payload alone fits, but with multipart overhead the body does not.
++    sent = await run(RequestBodyLimitMiddleware(form_app, len(payload) + 5), [body], headers)
++    assert status(sent) == 413
++    sent = await run(RequestBodyLimitMiddleware(form_app, len(body)), [body], headers)
++    assert status(sent) == 200
++    assert body_of(sent) == b"20"
++
++
++async def test_no_second_response_when_response_started() -> None:
++    raised: list[bool] = []
++
++    async def app_(scope: Scope, receive: Receive, send: Send) -> None:
++        await send({"type": "http.response.start", "status": 200, "headers": []})
++        try:
++            while True:
++                message = await receive()
++                if not message.get("more_body"):  # pragma: no cover
++                    break
++        except RequestBodyLimitExceeded:
++            raised.append(True)
++            raise
++        await send({"type": "http.response.body", "body": b""})  # pragma: no cover
++
++    app = RequestBodyLimitMiddleware(app_, max_body_size=5)
++    sent = await run(app, [b"abc", b"def"])
++    assert raised == [True]
++    assert [m["type"] for m in sent] == ["http.response.start"]
++    assert status(sent) == 200
++
++
++async def test_receive_keeps_raising_after_limit_crossed() -> None:
++    results: list[str] = []
++
++    async def app_(scope: Scope, receive: Receive, send: Send) -> None:
++        for _ in range(3):
++            try:
++                await receive()
++                results.append("ok")
++            except RequestBodyLimitExceeded:
++                results.append("raised")
++
++    app = RequestBodyLimitMiddleware(app_, max_body_size=5)
++    await run(app, [b"abcdef", b"x", b"y"])
++    assert results == ["raised", "raised", "raised"]
++
++
++async def test_nested_overrides_limit_raising() -> None:
++    inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=100)
++    app = RequestBodyLimitMiddleware(inner, max_body_size=10)
++    sent = await run(app, [b"x" * 50], cl(50))
++    assert status(sent) == 200
++    assert body_of(sent) == b"len=50"
++
++
++async def test_nested_overrides_limit_lowering() -> None:
++    inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    app = RequestBodyLimitMiddleware(inner, max_body_size=100)
++    sent = await run(app, [b"x" * 50])
++    assert status(sent) == 413
++    # Not double counted: bytes within the inner limit pass.
++    sent = await run(app, [b"x" * 5, b"x" * 5])
++    assert status(sent) == 200
++    assert body_of(sent) == b"len=10"
++
++
++async def test_nested_declared_content_length_rejected() -> None:
++    inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    app = RequestBodyLimitMiddleware(inner, max_body_size=100)
++    sent = await run(app, [b"x" * 50], cl(50))
++    assert status(sent) == 413
++    assert body_of(sent) == b"Content Too Large"
++
++
++async def test_nested_limit_lowered_after_body_already_read() -> None:
++    async def outer_app(scope: Scope, receive: Receive, send: Send) -> None:
++        await Request(scope, receive).body()
++        await inner(scope, receive, send)
++
++    inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=10)
++    app = RequestBodyLimitMiddleware(outer_app, max_body_size=100)
++    sent = await run(app, [b"x" * 50])
++    assert status(sent) == 413
++
++
++async def test_not_exported_from_package_root() -> None:
++    assert not hasattr(starlette, "RequestBodyLimitMiddleware")
++    assert not hasattr(starlette, "body_limit")

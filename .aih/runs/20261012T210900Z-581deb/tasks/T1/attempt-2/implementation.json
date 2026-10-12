@@ -1,0 +1,22 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "test_body_over_limit checks a plain-text 413 'Content Too Large' for a body with Content-Length. test_streaming_body_without_content_length covers a chunked body with no Content-Length. test_multipart_counts_encoding_overhead covers a multipart file whose data is exactly at the limit but whose boundaries and headers push it over."
+    },
+    {
+      "criterion": "ACC2",
+      "note": "test_declared_content_length_rejected_before_reading checks the app is never called. test_understated_content_length_does_not_bypass checks the received-byte count still enforces the limit. test_body_exactly_at_limit checks a body exactly at the limit returns 200. test_invalid_content_length_is_ignored covers a non-numeric header."
+    },
+    {
+      "criterion": "ACC3",
+      "note": "test_no_second_response_when_response_already_started checks that only the app's http.response.start is sent and that RequestBodyLimitExceeded still propagates."
+    },
+    {
+      "criterion": "ACC7",
+      "note": "test_not_exported_from_package_root checks the middleware is not an attribute of the starlette package. I did not touch starlette/__init__.py."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Created starlette/middleware/body_limit.py (RequestBodyLimitMiddleware, RequestBodyLimitExceeded) and tests/middleware/test_body_limit.py. The tests have not been run: I can't run commands here. Shared state lives in scope[\"starlette.body_limit\"], so a nested instance overrides the limit instead of counting the body twice."
+}

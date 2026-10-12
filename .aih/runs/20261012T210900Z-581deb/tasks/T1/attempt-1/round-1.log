@@ -1,0 +1,25 @@
+...........F...............F....                                         [100%]
+================================== FAILURES ===================================
+________________ test_nested_overrides_limit_raising[asyncio] _________________
+
+    async def test_nested_overrides_limit_raising() -> None:
+        inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=100)
+        app = RequestBodyLimitMiddleware(inner, max_body_size=10)
+        sent = await run(app, [b"x" * 50], cl(50))
+>       assert status(sent) == 200
+E       AssertionError: assert 413 == 200
+E        +  where 413 = status([{'type': 'http.response.start', 'status': 413, 'headers': [(b'content-length', b'17'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Content Too Large'}])
+
+tests\middleware\test_body_limit.py:196: AssertionError
+__________________ test_nested_overrides_limit_raising[trio] __________________
+
+    async def test_nested_overrides_limit_raising() -> None:
+        inner = RequestBodyLimitMiddleware(read_all_app, max_body_size=100)
+        app = RequestBodyLimitMiddleware(inner, max_body_size=10)
+        sent = await run(app, [b"x" * 50], cl(50))
+>       assert status(sent) == 200
+E       AssertionError: assert 413 == 200
+E        +  where 413 = status([{'type': 'http.response.start', 'status': 413, 'headers': [(b'content-length', b'17'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Content Too Large'}])
+
+tests\middleware\test_body_limit.py:196: AssertionError
+2 failed, 30 passed in 0.22s
