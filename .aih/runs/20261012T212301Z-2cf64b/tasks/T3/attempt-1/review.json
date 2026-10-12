@@ -1,0 +1,27 @@
+{
+  "findings": [
+    {
+      "file": "starlette/applications.py",
+      "line": 30,
+      "pass": 1,
+      "severity": "advisory",
+      "text": "Hiding Content-Length from the app-level limiter means Starlette(max_body_size=N) never fails fast on a declared oversized length. It only rejects after counting bytes, which departs from the fail-fast intent of requirement 1 for the app-level limit."
+    },
+    {
+      "file": "tests/test_max_body_size.py",
+      "line": 0,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test checks that the app-level limit still rejects an oversized declared Content-Length when no inner limit exists. No test checks that user middleware sees the restored Content-Length header. No test covers nested Mounts with different limits, or a Route limit combined with Route middleware."
+    },
+    {
+      "file": "starlette/applications.py",
+      "line": 19,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "The _HideContentLength and _RestoreContentLength scope-rewriting pair adds two extra middlewares and a private scope key. It could be replaced with a flag on the limiter or a simpler mechanism."
+    }
+  ],
+  "summary": "The wiring meets ACC9\u2013ACC13, and the tests cover scoping, raising and lowering, and the default. No existing tests were modified. The remaining notes are advisory.",
+  "verdict": "approve"
+}

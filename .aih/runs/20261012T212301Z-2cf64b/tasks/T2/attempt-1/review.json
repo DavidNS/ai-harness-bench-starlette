@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "file": "tests/test_formparsers.py",
+      "line": 636,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "The new test only has one file part, so it doesn't show that every tracked file is closed when several have been created before the interruption, such as an earlier completed file plus a partial one."
+    }
+  ],
+  "summary": "The change meets ACC14. The whole parse loop and `finalize()` sit inside the `try`, and `except BaseException` closes every tracked temp file and re-raises. The new test covers a stream error after a file part has started. No existing tests were weakened and nothing in the diff is dead code. The only gap is minor: the test uses a single file part.",
+  "verdict": "approve"
+}

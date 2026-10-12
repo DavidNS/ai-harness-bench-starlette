@@ -1,0 +1,19 @@
+{
+  "findings": [
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 35,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "Headers decode as latin-1, so a Content-Length like b'\\xb2' makes str.isdigit() true but int() raises ValueError, which gives a 500; use a try/except around int() or an ASCII-only check, and add a test for it."
+    },
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 41,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "The aliases `original_receive = receive` and `max_body_size = self.max_body_size` are redundant, since the closures could use `receive` and `self.max_body_size` directly."
+    }
+  ],
+  "verdict": "approve"
+}

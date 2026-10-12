@@ -1,0 +1,135 @@
+..............F.F.F.....................F.F.F.......                     [100%]
+================================== FAILURES ===================================
+__________ test_inner_limit_raises_outer_limit[asyncio-route-False] ___________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+chunked = False, kind = 'route'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+__________ test_inner_limit_raises_outer_limit[asyncio-mount-False] ___________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+chunked = False, kind = 'mount'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+__________ test_inner_limit_raises_outer_limit[asyncio-router-False] __________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+chunked = False, kind = 'router'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+____________ test_inner_limit_raises_outer_limit[trio-route-False] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+chunked = False, kind = 'route'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+____________ test_inner_limit_raises_outer_limit[trio-mount-False] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+chunked = False, kind = 'mount'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+___________ test_inner_limit_raises_outer_limit[trio-router-False] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+chunked = False, kind = 'router'
+
+    @pytest.mark.parametrize("chunked", [False, True])
+    @pytest.mark.parametrize("kind", ["route", "mount", "router"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, chunked: bool, kind: str) -> None:
+        if kind == "route":
+            routes = [Route("/", read_body, methods=["POST"], max_body_size=1000)]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000)]
+        else:
+            routes = [Mount("/", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=1000))]
+        client = test_client_factory(Starlette(routes=routes, max_body_size=100))
+>       assert post(client, "/", 500, chunked).text == "500"
+E       AssertionError: assert 'Content Too Large' == '500'
+E         
+E         - 500
+E         + Content Too Large
+
+tests\test_max_body_size.py:152: AssertionError
+6 failed, 46 passed in 0.47s

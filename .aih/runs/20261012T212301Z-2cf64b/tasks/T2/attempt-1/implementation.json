@@ -1,0 +1,10 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC14",
+      "note": "tests/test_formparsers.py::test_multipart_parser_closes_files_on_any_exception feeds a stream that yields a started file part, then raises a custom StreamError. It asserts the error propagates, exactly one temp file was tracked, and every tracked file is closed. The old code only caught MultiPartException and OSError, so the file would stay open and the test would fail on the base commit. The new `except BaseException` is the only branch added, and this test covers it."
+    }
+  ],
+  "replan_request": null,
+  "summary": "MultiPartParser.parse now closes all tracked temp files on any BaseException and re-raises, replacing the old (MultiPartException, OSError) catch. I added a test where the stream raises a custom exception after a file part has started. I couldn't run the tests here."
+}

@@ -1,0 +1,80 @@
+{
+  "attempts_total": 3,
+  "base_ref": "main",
+  "base_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+  "baseline_green": false,
+  "created_at": "2026-10-12T21:23:01+00:00",
+  "head": "2057ceda4fee7e1e9a22cb11a2c7e641d804ea84",
+  "plan_version": 1,
+  "repo": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\targets\\20261012T212259Z-starlette-max-body-size-gated-1",
+  "run_id": "20261012T212301Z-2cf64b",
+  "status": "implemented",
+  "tasks": {
+    "T1": {
+      "advisories": [
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 35,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "Headers decode as latin-1, so a Content-Length like b'\\xb2' makes str.isdigit() true but int() raises ValueError, which gives a 500; use a try/except around int() or an ASCII-only check, and add a test for it."
+        },
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 41,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "The aliases `original_receive = receive` and `max_body_size = self.max_body_size` are redundant, since the closures could use `receive` and `self.max_body_size` directly."
+        }
+      ],
+      "attempts": 1,
+      "commit": "80402a1a714c79a966d292b9d2380464c8eea0a0",
+      "status": "committed"
+    },
+    "T2": {
+      "advisories": [
+        {
+          "file": "tests/test_formparsers.py",
+          "line": 636,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "The new test only has one file part, so it doesn't show that every tracked file is closed when several have been created before the interruption, such as an earlier completed file plus a partial one."
+        }
+      ],
+      "attempts": 1,
+      "commit": "87f58c2d6a3b40f4b9d05bf8788fe5960db6fc7e",
+      "status": "committed"
+    },
+    "T3": {
+      "advisories": [
+        {
+          "file": "starlette/applications.py",
+          "line": 30,
+          "pass": 1,
+          "severity": "advisory",
+          "text": "Hiding Content-Length from the app-level limiter means Starlette(max_body_size=N) never fails fast on a declared oversized length. It only rejects after counting bytes, which departs from the fail-fast intent of requirement 1 for the app-level limit."
+        },
+        {
+          "file": "tests/test_max_body_size.py",
+          "line": 0,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test checks that the app-level limit still rejects an oversized declared Content-Length when no inner limit exists. No test checks that user middleware sees the restored Content-Length header. No test covers nested Mounts with different limits, or a Route limit combined with Route middleware."
+        },
+        {
+          "file": "starlette/applications.py",
+          "line": 19,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "The _HideContentLength and _RestoreContentLength scope-rewriting pair adds two extra middlewares and a private scope key. It could be replaced with a flag on the limiter or a simpler mechanism."
+        }
+      ],
+      "attempts": 1,
+      "commit": "2057ceda4fee7e1e9a22cb11a2c7e641d804ea84",
+      "review_rounds": 1,
+      "status": "committed"
+    }
+  },
+  "updated_at": "2026-10-12T22:48:37+00:00",
+  "worktree": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\results\\arms\\detail\\20261012T212259Z-starlette-max-body-size-gated-1\\aih-data\\worktrees\\20261012T212301Z-2cf64b"
+}

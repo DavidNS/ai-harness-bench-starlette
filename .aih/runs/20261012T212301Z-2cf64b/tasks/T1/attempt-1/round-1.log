@@ -1,0 +1,321 @@
+..FFF..F..F....FFF..F..F...                                              [100%]
+================================== FAILURES ===================================
+_____________ test_streaming_body_without_content_length[asyncio] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_streaming_body_without_content_length(test_client_factory: TestClientFactory) -> None:
+        client = test_client_factory(make_app(10))
+    
+        def gen(n: int) -> Any:
+            for _ in range(n):
+                yield b"xxxx"
+    
+        assert "content-length" not in client.build_request("POST", "/", content=gen(1)).headers
+        assert client.post("/", content=gen(2)).text == "8"
+>       assert client.post("/", content=gen(3)).status_code == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +    where <Response [500 Internal Server Error]> = post('/', content=<generator object test_streaming_body_without_content_length.<locals>.gen at 0x000001A1DEDC1F20>)
+E        +      where post = <starlette.testclient.TestClient object at 0x000001A1E15F4B90>.post
+E        +      and   <generator object test_streaming_body_without_content_length.<locals>.gen at 0x000001A1DEDC1F20> = <function test_streaming_body_without_content_length.<locals>.gen at 0x000001A1E163F880>(3)
+
+tests\middleware\test_body_limit.py:90: AssertionError
+__________________ test_understated_content_length[asyncio] ___________________
+
+    @pytest.mark.anyio
+    async def test_understated_content_length() -> None:
+        sent, _ = await drive(make_app(10), [b"x" * 20], headers=[(b"content-length", b"5")])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = status_of([{'type': 'http.response.start', 'status': 500, 'headers': [(b'content-length', b'21'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Internal Server Error'}])
+
+tests\middleware\test_body_limit.py:96: AssertionError
+_______________ test_invalid_content_length_is_ignored[asyncio] _______________
+
+    @pytest.mark.anyio
+    async def test_invalid_content_length_is_ignored() -> None:
+        sent, _ = await drive(make_app(10), [b"x" * 4], headers=[(b"content-length", b"abc")])
+        assert status_of(sent) == 200
+        sent, _ = await drive(make_app(10), [b"x" * 40], headers=[(b"content-length", b"abc")])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = status_of([{'type': 'http.response.start', 'status': 500, 'headers': [(b'content-length', b'21'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Internal Server Error'}])
+
+tests\middleware\test_body_limit.py:105: AssertionError
+________________ test_multipart_over_limit_mid_stream[asyncio] ________________
+
+self = <tempfile.SpooledTemporaryFile object at 0x000001A1E15EF520>
+
+    def __del__(self):
+        if not self.closed:
+>           _warnings.warn(
+                "Unclosed file {!r}".format(self),
+                ResourceWarning,
+                stacklevel=2,
+                source=self
+            )
+E           ResourceWarning: Unclosed file <tempfile.SpooledTemporaryFile object at 0x000001A1E15EF520>
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py:752: ResourceWarning
+
+The above exception was the direct cause of the following exception:
+
+cls = <class '_pytest.runner.CallInfo'>
+func = <function call_and_report.<locals>.<lambda> at 0x000001A1E1742980>
+when = 'call'
+reraise = (<class '_pytest.outcomes.Exit'>, <class 'KeyboardInterrupt'>)
+
+    @classmethod
+    def from_call(
+        cls,
+        func: Callable[[], TResult],
+        when: Literal["collect", "setup", "call", "teardown"],
+        reraise: type[BaseException] | tuple[type[BaseException], ...] | None = None,
+    ) -> CallInfo[TResult]:
+        """Call func, wrapping the result in a CallInfo.
+    
+        :param func:
+            The function to call. Called without arguments.
+        :type func: Callable[[], _pytest.runner.TResult]
+        :param when:
+            The phase in which the function is called.
+        :param reraise:
+            Exception or exceptions that shall propagate if raised by the
+            function, instead of being wrapped in the CallInfo.
+        """
+        excinfo = None
+        instant = timing.Instant()
+        try:
+>           result: TResult | None = func()
+                                     ^^^^^^
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:361: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\skipping.py:268: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:183: in pytest_runtest_call
+    collect_unraisable(item.config)
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:79: in collect_unraisable
+    raise errors[0]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = <_pytest.config.Config object at 0x000001A1DE2A6150>
+
+    def collect_unraisable(config: Config) -> None:
+        pop_unraisable = config.stash[unraisable_exceptions].pop
+        errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+        meta = None
+        hook_error = None
+        try:
+            while True:
+                try:
+                    meta = pop_unraisable()
+                except IndexError:
+                    break
+    
+                if isinstance(meta, BaseException):
+                    hook_error = RuntimeError("Failed to process unraisable exception")
+                    hook_error.__cause__ = meta
+                    errors.append(hook_error)
+                    continue
+    
+                msg = meta.msg
+                try:
+>                   warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+E                   pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x000001A1DE2F4AE0>
+E                   Enable tracemalloc to get traceback where the object was allocated.
+E                   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:67: PytestUnraisableExceptionWarning
+_________________ test_inner_limiter_overrides_outer[asyncio] _________________
+
+    @pytest.mark.anyio
+    async def test_inner_limiter_overrides_outer() -> None:
+        inner = RequestBodyLimitMiddleware(make_app(1000), max_body_size=1000)
+        raised = RequestBodyLimitMiddleware(inner, max_body_size=10)
+        sent, _ = await drive(raised, [b"x" * 500])
+        assert status_of(sent) == 200
+    
+        lowered = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(make_app(1000), max_body_size=10), max_body_size=1000)
+        sent, _ = await drive(lowered, [b"x" * 500])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 200 == 413
+E        +  where 200 = status_of([{'type': 'http.response.start', 'status': 200, 'headers': [(b'content-length', b'3'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'500'}])
+
+tests\middleware\test_body_limit.py:202: AssertionError
+______________ test_streaming_body_without_content_length[trio] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_streaming_body_without_content_length(test_client_factory: TestClientFactory) -> None:
+        client = test_client_factory(make_app(10))
+    
+        def gen(n: int) -> Any:
+            for _ in range(n):
+                yield b"xxxx"
+    
+        assert "content-length" not in client.build_request("POST", "/", content=gen(1)).headers
+        assert client.post("/", content=gen(2)).text == "8"
+>       assert client.post("/", content=gen(3)).status_code == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +    where <Response [500 Internal Server Error]> = post('/', content=<generator object test_streaming_body_without_content_length.<locals>.gen at 0x000001A1E15BE810>)
+E        +      where post = <starlette.testclient.TestClient object at 0x000001A1E15F6000>.post
+E        +      and   <generator object test_streaming_body_without_content_length.<locals>.gen at 0x000001A1E15BE810> = <function test_streaming_body_without_content_length.<locals>.gen at 0x000001A1E1743880>(3)
+
+tests\middleware\test_body_limit.py:90: AssertionError
+____________________ test_understated_content_length[trio] ____________________
+
+    @pytest.mark.anyio
+    async def test_understated_content_length() -> None:
+        sent, _ = await drive(make_app(10), [b"x" * 20], headers=[(b"content-length", b"5")])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = status_of([{'type': 'http.response.start', 'status': 500, 'headers': [(b'content-length', b'21'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Internal Server Error'}])
+
+tests\middleware\test_body_limit.py:96: AssertionError
+________________ test_invalid_content_length_is_ignored[trio] _________________
+
+    @pytest.mark.anyio
+    async def test_invalid_content_length_is_ignored() -> None:
+        sent, _ = await drive(make_app(10), [b"x" * 4], headers=[(b"content-length", b"abc")])
+        assert status_of(sent) == 200
+        sent, _ = await drive(make_app(10), [b"x" * 40], headers=[(b"content-length", b"abc")])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 500 == 413
+E        +  where 500 = status_of([{'type': 'http.response.start', 'status': 500, 'headers': [(b'content-length', b'21'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Internal Server Error'}])
+
+tests\middleware\test_body_limit.py:105: AssertionError
+_________________ test_multipart_over_limit_mid_stream[trio] __________________
+
+self = <tempfile.SpooledTemporaryFile object at 0x000001A1E1612FB0>
+
+    def __del__(self):
+        if not self.closed:
+>           _warnings.warn(
+                "Unclosed file {!r}".format(self),
+                ResourceWarning,
+                stacklevel=2,
+                source=self
+            )
+E           ResourceWarning: Unclosed file <tempfile.SpooledTemporaryFile object at 0x000001A1E1612FB0>
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py:752: ResourceWarning
+
+The above exception was the direct cause of the following exception:
+
+cls = <class '_pytest.runner.CallInfo'>
+func = <function call_and_report.<locals>.<lambda> at 0x000001A1E178D120>
+when = 'call'
+reraise = (<class '_pytest.outcomes.Exit'>, <class 'KeyboardInterrupt'>)
+
+    @classmethod
+    def from_call(
+        cls,
+        func: Callable[[], TResult],
+        when: Literal["collect", "setup", "call", "teardown"],
+        reraise: type[BaseException] | tuple[type[BaseException], ...] | None = None,
+    ) -> CallInfo[TResult]:
+        """Call func, wrapping the result in a CallInfo.
+    
+        :param func:
+            The function to call. Called without arguments.
+        :type func: Callable[[], _pytest.runner.TResult]
+        :param when:
+            The phase in which the function is called.
+        :param reraise:
+            Exception or exceptions that shall propagate if raised by the
+            function, instead of being wrapped in the CallInfo.
+        """
+        excinfo = None
+        instant = timing.Instant()
+        try:
+>           result: TResult | None = func()
+                                     ^^^^^^
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:361: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\skipping.py:268: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:183: in pytest_runtest_call
+    collect_unraisable(item.config)
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:79: in collect_unraisable
+    raise errors[0]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = <_pytest.config.Config object at 0x000001A1DE2A6150>
+
+    def collect_unraisable(config: Config) -> None:
+        pop_unraisable = config.stash[unraisable_exceptions].pop
+        errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+        meta = None
+        hook_error = None
+        try:
+            while True:
+                try:
+                    meta = pop_unraisable()
+                except IndexError:
+                    break
+    
+                if isinstance(meta, BaseException):
+                    hook_error = RuntimeError("Failed to process unraisable exception")
+                    hook_error.__cause__ = meta
+                    errors.append(hook_error)
+                    continue
+    
+                msg = meta.msg
+                try:
+>                   warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+E                   pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x000001A1DE2F4AE0>
+E                   Enable tracemalloc to get traceback where the object was allocated.
+E                   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:67: PytestUnraisableExceptionWarning
+__________________ test_inner_limiter_overrides_outer[trio] ___________________
+
+    @pytest.mark.anyio
+    async def test_inner_limiter_overrides_outer() -> None:
+        inner = RequestBodyLimitMiddleware(make_app(1000), max_body_size=1000)
+        raised = RequestBodyLimitMiddleware(inner, max_body_size=10)
+        sent, _ = await drive(raised, [b"x" * 500])
+        assert status_of(sent) == 200
+    
+        lowered = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(make_app(1000), max_body_size=10), max_body_size=1000)
+        sent, _ = await drive(lowered, [b"x" * 500])
+>       assert status_of(sent) == 413
+E       AssertionError: assert 200 == 413
+E        +  where 200 = status_of([{'type': 'http.response.start', 'status': 200, 'headers': [(b'content-length', b'3'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'500'}])
+
+tests\middleware\test_body_limit.py:202: AssertionError
+10 failed, 17 passed in 0.53s

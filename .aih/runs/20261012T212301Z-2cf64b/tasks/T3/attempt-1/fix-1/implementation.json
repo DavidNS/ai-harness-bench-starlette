@@ -1,0 +1,26 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC9",
+      "note": "test_default_is_unlimited: all four accept max_body_size=None, and a 100000-byte body (with and without Content-Length) is accepted on the Starlette app and a mounted route."
+    },
+    {
+      "criterion": "ACC10",
+      "note": "test_starlette_limit checks 413 with and without Content-Length. test_starlette_limit_applies_to_middleware_reading_body checks 413 when an app middleware reads the body. test_non_http_scopes_pass_through checks websocket and lifespan scopes still work with an app limit."
+    },
+    {
+      "criterion": "ACC11",
+      "note": "test_route_limit, test_mount_limit, test_router_limit and test_router_limit_as_mounted_app, each with and without Content-Length."
+    },
+    {
+      "criterion": "ACC12",
+      "note": "test_inner_limit_raises_outer_limit, parametrized over route, mount, router and chunked/Content-Length: a 500-byte body is accepted over an outer limit of 100, and a 2000-byte body is still rejected."
+    },
+    {
+      "criterion": "ACC13",
+      "note": "test_inner_limit_lowers_outer_limit, parametrized over route, mount, router and chunked/Content-Length: an inner limit of 10 under an outer limit of 1000 rejects a 50-byte body and accepts 10 bytes."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Fixed the reviewer's finding: a route, mount or router can now raise the app limit for requests that declare a Content-Length. I couldn't run the tests, so this is unverified. `Starlette` now puts two small private shims around the app-level limiter. `_HideContentLength` hides Content-Length from the limiter, so it doesn't reject before routing. `_RestoreContentLength` puts the header back for everything inside. The app limit is still enforced by counting received bytes, and inner limiters still fail fast on the declared length. One side effect: an oversized declared body at the app level is now rejected once the limit is crossed during reading, not before any read. It still gets a 413. test_inner_limit_raises_outer_limit now runs with and without Content-Length. I added test_non_http_scopes_pass_through for the shims' non-http branch (a websocket route plus lifespan)."
+}
