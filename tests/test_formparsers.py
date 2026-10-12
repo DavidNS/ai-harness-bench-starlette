@@ -613,6 +613,28 @@ async def test_urlencoded_limits_stop_parsing_within_a_single_chunk() -> None:
     assert sum(len(data) for _, data in parser.messages) <= 1024
 
 
+@pytest.mark.anyio
+async def test_multipart_parser_closes_files_on_any_exception() -> None:
+    class StreamError(Exception):
+        pass
+
+    async def broken_stream() -> AsyncGenerator[bytes, None]:
+        yield (
+            b"--b\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="a.txt"\r\n'
+            b"Content-Type: text/plain\r\n\r\n"
+            b"partial file data"
+        )
+        raise StreamError("interrupted")
+
+    headers = Headers({"content-type": "multipart/form-data; boundary=b"})
+    parser = MultiPartParser(headers, broken_stream())
+    with pytest.raises(StreamError):
+        await parser.parse()
+    assert len(parser._files_to_close_on_error) == 1
+    assert all(file.closed for file in parser._files_to_close_on_error)
+
+
 def test_user_safe_decode_helper() -> None:
     result = _user_safe_decode(b"\xc4\x99\xc5\xbc\xc4\x87", "utf-8")
     assert result == "ężć"
