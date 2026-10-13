@@ -1,0 +1,224 @@
+{
+  "criteria": [
+    {
+      "id": "ACC1",
+      "intent": "INTENT1",
+      "key": "C1",
+      "kind": "behavior",
+      "text": "test_rejects_body_over_limit_without_content_length: chunked body exceeding the limit gets plain-text 413 'Content Too Large'."
+    },
+    {
+      "id": "ACC2",
+      "intent": "INTENT2",
+      "key": "C2",
+      "kind": "behavior",
+      "text": "test_content_length_over_limit_rejected_before_read: declared length over limit yields 413 even when the endpoint never reads the body; understated Content-Length and absent header still limited by counted bytes; exactly-at-limit is allowed."
+    },
+    {
+      "id": "ACC3",
+      "intent": "INTENT3",
+      "key": "C3",
+      "kind": "behavior",
+      "text": "test_no_double_response: limit crossed after response started sends no second response and receive raises HTTPException(413)."
+    },
+    {
+      "id": "ACC4",
+      "intent": "INTENT4",
+      "key": "C4",
+      "kind": "behavior",
+      "text": "test_scope_key_set_and_restored: scope[MAX_BODY_SIZE_SCOPE_KEY] holds the effective limit during the app and the previous value/absence is restored afterwards."
+    },
+    {
+      "id": "ACC5",
+      "intent": "INTENT6",
+      "key": "C5",
+      "kind": "behavior",
+      "text": "test_inner_limit_raises_outer: an inner limit higher than the outer accepts a body (and a declared Content-Length) the outer would reject; the outer wrapper reads the limit from scope at receive time and for Content-Length."
+    },
+    {
+      "id": "ACC6",
+      "intent": "INTENT6",
+      "key": "C6",
+      "kind": "behavior",
+      "text": "test_inner_limit_lowers_outer: an inner lower limit rejects bodies the outer would accept."
+    },
+    {
+      "id": "ACC7",
+      "intent": "INTENT5",
+      "key": "C7",
+      "kind": "behavior",
+      "text": "test_max_body_size_kwarg: Starlette, Router, Mount and Route accept max_body_size (default None = unlimited) and enforce it; application middleware reading the body is limited by the app-level limit; route/mount/router overrides raise and lower it."
+    },
+    {
+      "id": "ACC8",
+      "intent": "INTENT8",
+      "key": "C8",
+      "kind": "behavior",
+      "text": "Multipart uploads and streaming bodies are limited by counted bytes; temp files are closed on mid-stream 413 (existing T2 test remains green)."
+    }
+  ],
+  "frozen_at": "2026-10-13T18:41:01+00:00",
+  "intents": [
+    {
+      "evidence": [
+        {
+          "end": 13,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "class RequestBodyLimitMiddleware:",
+          "start": 10
+        }
+      ],
+      "intent": "INTENT1",
+      "rationale": "Middleware exists but must be reworked to read the effective limit from scope.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 51,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "if declared > self.max_body_size:",
+          "start": 49
+        }
+      ],
+      "intent": "INTENT2",
+      "rationale": "Fail-fast currently uses self.max_body_size eagerly, which blocks inner higher limits; must use the effective scope limit.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 62,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "if not exceeded or response_started:",
+          "start": 59
+        }
+      ],
+      "intent": "INTENT3",
+      "rationale": "No-double-response logic exists but must keep working after the rework and be tested.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 7,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "MAX_BODY_SIZE_SCOPE_KEY = \"starlette.max_body_size\"",
+          "start": 7
+        },
+        {
+          "end": 67,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "if previous is missing:",
+          "start": 64
+        }
+      ],
+      "intent": "INTENT4",
+      "rationale": "Constant is exported, set while app runs and restored afterwards.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT5",
+      "rationale": "No max_body_size kwarg exists on Starlette, Router, Mount, Route.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT6",
+      "rationale": "Layering requires the middleware to use the effective scope limit and the app/routing classes to apply the middleware.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 294,
+          "path": "starlette/formparsers.py",
+          "quote": "except Exception:",
+          "start": 291
+        }
+      ],
+      "intent": "INTENT7",
+      "rationale": "T2 already closes temp files on any Exception in MultiPartParser.parse and re-raises.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT8",
+      "rationale": "Tests needed for middleware, kwargs on all four classes, and cleanup.",
+      "resolution": "change"
+    }
+  ],
+  "run_id": "20261013T183617Z-a4bbb4",
+  "summary": "",
+  "tasks": [
+    {
+      "criteria": [
+        "ACC1",
+        "ACC2",
+        "ACC3",
+        "ACC4",
+        "ACC5",
+        "ACC6",
+        "ACC8"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/middleware/body_limit.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "tests/middleware/test_body_limit.py",
+          "role": "test"
+        }
+      ],
+      "id": "T1",
+      "key": "T3",
+      "summary": "Rework RequestBodyLimitMiddleware so the receive wrapper and Content-Length check use the effective limit from scope[MAX_BODY_SIZE_SCOPE_KEY] (falling back to self.max_body_size) at receive time, letting an inner limit raise or lower the outer one. Because an outer middleware cannot know inner overrides at call time, defer the Content-Length rejection: check the declared length against the effective scope limit at first receive and at the first http.response.start (swallowing the app's response and sending 413 so non-reading endpoints still get 413); keep no-double-response and scope restore. Add middleware tests incl. nested raise/lower.",
+      "tests": [
+        "tests/middleware/test_body_limit.py"
+      ]
+    },
+    {
+      "criteria": [
+        "ACC7"
+      ],
+      "depends_on": [
+        "T1"
+      ],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/applications.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/routing.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_applications.py",
+          "role": "test"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_routing.py",
+          "role": "test"
+        }
+      ],
+      "id": "T2",
+      "key": "T4",
+      "summary": "Add max_body_size: int | None = None to Starlette (applied in the middleware stack before routing so app middleware is limited), Router, Mount and Route (wrapping their app with RequestBodyLimitMiddleware when not None), with tests including inner raise/lower.",
+      "tests": [
+        "tests/test_applications.py",
+        "tests/test_routing.py"
+      ]
+    }
+  ],
+  "version": 2
+}

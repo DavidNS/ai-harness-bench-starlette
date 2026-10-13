@@ -1,0 +1,14 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC9",
+      "line": 866,
+      "note": "The stream raises HTTPException(413) after the file part has started. The test asserts that the exception propagates, that one temp file was registered, and that it is closed. With the old `except (MultiPartException, OSError)` clause the file would stay open, so the assertion would fail.",
+      "status": "covered",
+      "test": "tests/test_formparsers.py::test_multipart_closes_tempfiles_on_interrupt"
+    }
+  ],
+  "findings": [],
+  "summary": "The change is minimal and correct. `except Exception: ... raise` closes the registered temp files and preserves the traceback. The test fails without the fix, because HTTPException was not previously caught.",
+  "verdict": "approve"
+}

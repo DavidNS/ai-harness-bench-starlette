@@ -1,0 +1,234 @@
+{
+  "criteria": [
+    {
+      "intent": "INTENT1",
+      "key": "C1",
+      "kind": "behavior",
+      "text": "test_rejects_body_over_limit_without_content_length: a chunked body exceeding max_body_size gets a plain-text 413 'Content Too Large'."
+    },
+    {
+      "intent": "INTENT1",
+      "key": "C2",
+      "kind": "behavior",
+      "text": "test_multipart_upload_counts_overhead: multipart upload whose raw body (with boundaries) exceeds the limit is rejected with 413 even if file data alone is under the limit; streaming bodies are counted per chunk."
+    },
+    {
+      "intent": "INTENT2",
+      "key": "C3",
+      "kind": "behavior",
+      "text": "test_content_length_failfast: a declared Content-Length over the limit gets 413 before receive is called, even if the endpoint never reads the body."
+    },
+    {
+      "intent": "INTENT2",
+      "key": "C4",
+      "kind": "behavior",
+      "text": "test_understated_content_length_and_exact_limit: an understated Content-Length does not bypass the limit; a body exactly at the limit is accepted."
+    },
+    {
+      "intent": "INTENT3",
+      "key": "C5",
+      "kind": "behavior",
+      "text": "test_no_double_response: when the limit is crossed after the app started its response, the middleware sends no second response and receive raises HTTPException(413)."
+    },
+    {
+      "intent": "INTENT4",
+      "key": "C6",
+      "kind": "behavior",
+      "text": "test_scope_key_set_and_restored: scope['starlette.max_body_size'] equals the limit inside the app and the previous value (or absence) is restored afterwards, including after errors."
+    },
+    {
+      "intent": "INTENT5",
+      "key": "C7",
+      "kind": "behavior",
+      "text": "test_max_body_size_kwarg: Starlette, Router, Mount and Route accept max_body_size and enforce it; default None leaves requests unlimited."
+    },
+    {
+      "intent": "INTENT6",
+      "key": "C8",
+      "kind": "behavior",
+      "text": "test_inner_limit_overrides_outer: an inner Route/Mount/Router limit can raise or lower the Starlette-level limit; application middleware that reads the body is subject to the application-level limit; Content-Length fail-fast applies when the endpoint never reads the body."
+    },
+    {
+      "intent": "INTENT7",
+      "key": "C9",
+      "kind": "behavior",
+      "text": "test_multipart_closes_tempfiles_on_interrupt: temp files created during multipart parsing are closed when parsing is interrupted by any exception, including HTTPException(413) raised from the stream mid-parse."
+    },
+    {
+      "intent": "INTENT1",
+      "key": "C10",
+      "kind": "other",
+      "text": "Middleware is pure ASGI, exports MAX_BODY_SIZE_SCOPE_KEY, and nothing new is exported from starlette/__init__ or the package root."
+    },
+    {
+      "intent": "INTENT8",
+      "key": "C11",
+      "kind": "other",
+      "text": "The existing test suite remains green."
+    }
+  ],
+  "intents": [
+    {
+      "evidence": [],
+      "intent": "INTENT1",
+      "rationale": "No body_limit module exists; create it.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT2",
+      "rationale": "Content-Length fail-fast plus counted-bytes enforcement must be implemented in the new middleware.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT3",
+      "rationale": "Middleware must track response start and raise HTTPException(413) from receive without sending a second response.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT4",
+      "rationale": "Scope key constant and set/restore logic are new.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 29,
+          "path": "starlette/applications.py",
+          "quote": "lifespan: Lifespan[AppType] | None = None,",
+          "start": 22
+        }
+      ],
+      "intent": "INTENT5",
+      "rationale": "Starlette, Router, Mount and Route have no max_body_size keyword.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 72,
+          "path": "starlette/applications.py",
+          "quote": "+ self.user_middleware",
+          "start": 68
+        }
+      ],
+      "intent": "INTENT6",
+      "rationale": "Application limit goes into build_middleware_stack before routing; Route/Mount/Router wrap their app with the middleware so inner limits override after routing.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 295,
+          "path": "starlette/formparsers.py",
+          "quote": "except (MultiPartException, OSError) as exc:",
+          "start": 291
+        }
+      ],
+      "intent": "INTENT7",
+      "rationale": "Only MultiPartException and OSError currently trigger closing temp files; must cover any interruption.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT8",
+      "rationale": "New tests are required in several test files.",
+      "resolution": "change"
+    }
+  ],
+  "summary": "Add a pure ASGI RequestBodyLimitMiddleware module, fix multipart temp-file cleanup on any interruption, then wire a max_body_size kwarg into Starlette, Router, Mount and Route with outer-to-inner override via the scope key. Three tasks; the middleware and the formparsers fix are independent, and wiring depends on the middleware.",
+  "tasks": [
+    {
+      "criteria": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C10"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "create",
+          "path": "starlette/middleware/body_limit.py",
+          "role": "production"
+        },
+        {
+          "action": "create",
+          "path": "tests/middleware/test_body_limit.py",
+          "role": "test"
+        }
+      ],
+      "key": "T1",
+      "summary": "Create RequestBodyLimitMiddleware and MAX_BODY_SIZE_SCOPE_KEY in starlette/middleware/body_limit.py with tests. Wrap receive to count bytes; Content-Length fail-fast; track response start to avoid a double response; raise HTTPException(413) from receive; set/restore the scope key.",
+      "tests": [
+        "tests/middleware/test_body_limit.py"
+      ]
+    },
+    {
+      "criteria": [
+        "C9"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/formparsers.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_formparsers.py",
+          "role": "test"
+        }
+      ],
+      "key": "T2",
+      "summary": "In MultiPartParser.parse, close temp files on any exception (except BaseException) rather than only MultiPartException/OSError, then re-raise; add a test.",
+      "tests": [
+        "tests/test_formparsers.py"
+      ]
+    },
+    {
+      "criteria": [
+        "C7",
+        "C8",
+        "C11"
+      ],
+      "depends_on": [
+        "T1"
+      ],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/applications.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/routing.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_applications.py",
+          "role": "test"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_routing.py",
+          "role": "test"
+        }
+      ],
+      "key": "T3",
+      "summary": "Add max_body_size: int | None = None to Starlette (inserted in build_middleware_stack after ServerErrorMiddleware and before user middleware), Router (wraps its routing app), Mount and Route (wrap self.app); None adds nothing. Inner limits override outer via the scope key. Add tests.",
+      "tests": [
+        "tests/test_applications.py",
+        "tests/test_routing.py"
+      ]
+    }
+  ]
+}

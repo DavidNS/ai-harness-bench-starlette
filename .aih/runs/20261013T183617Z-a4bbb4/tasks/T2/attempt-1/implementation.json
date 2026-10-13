@@ -1,0 +1,10 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC9",
+      "note": "test_multipart_closes_tempfiles_on_interrupt in tests/test_formparsers.py. It asserts HTTPException(413) propagates and the one temp file created is closed. Before the change the handler only covered MultiPartException/OSError, so the file stayed open and the test fails."
+    }
+  ],
+  "replan_request": null,
+  "summary": "MultiPartParser.parse now closes its temp files on any Exception and re-raises, replacing the old MultiPartException/OSError-only handler. I added a test that feeds a multipart file part and then raises HTTPException(413) from the stream. I couldn't run the tests here. The harness run is the first check."
+}

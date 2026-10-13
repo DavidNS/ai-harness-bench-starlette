@@ -1,0 +1,437 @@
+.....x.............................x.................................... [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+.........................F.............................................. [ 34%]
+........................................................................ [ 41%]
+........................................................................ [ 48%]
+........................................................................ [ 55%]
+........................................................................ [ 61%]
+........................................................................ [ 68%]
+........................................................................ [ 75%]
+...............................................F................F...s.FF [ 82%]
+FF...F................F...s.FFFF..F..................................... [ 89%]
+........................................................................ [ 96%]
+......................................                                   [100%]
+================================== FAILURES ===================================
+________________________ test_missing_env_file_raises _________________________
+
+pattern = "Config file 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_missing_env_file_raises0\\.env' not found."
+string = "Config file 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_missing_env_file_raises0\\.env' not found."
+flags = 0
+
+    def search(pattern, string, flags=0):
+        """Scan through string looking for a match to the pattern, returning
+        a Match object, or None if no match was found."""
+>       return _compile(pattern, flags).search(string)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\__init__.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\__init__.py:307: in _compile
+    p = _compiler.compile(pattern, flags)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_compiler.py:750: in compile
+    p = _parser.parse(p, flags)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:979: in parse
+    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:460: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:544: in _parse
+    code = _escape(source, this, state)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+source = <re._parser.Tokenizer object at 0x0000025F008FD250>, escape = '\\U'
+state = <re._parser.State object at 0x0000025F008FD220>
+
+    def _escape(source, escape, state):
+        # handle escape code in expression
+        code = CATEGORIES.get(escape)
+        if code:
+            return code
+        code = ESCAPES.get(escape)
+        if code:
+            return code
+        try:
+            c = escape[1:2]
+            if c == "x":
+                # hexadecimal escape
+                escape += source.getwhile(2, HEXDIGITS)
+                if len(escape) != 4:
+                    raise source.error("incomplete escape %s" % escape, len(escape))
+                return LITERAL, int(escape[2:], 16)
+            elif c == "u" and source.istext:
+                # unicode escape (exactly four digits)
+                escape += source.getwhile(4, HEXDIGITS)
+                if len(escape) != 6:
+                    raise source.error("incomplete escape %s" % escape, len(escape))
+                return LITERAL, int(escape[2:], 16)
+            elif c == "U" and source.istext:
+                # unicode escape (exactly eight digits)
+                escape += source.getwhile(8, HEXDIGITS)
+                if len(escape) != 10:
+>                   raise source.error("incomplete escape %s" % escape, len(escape))
+E                   re.error: incomplete escape \U at position 15
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:398: error
+
+During handling of the above exception, another exception occurred:
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_missing_env_file_raises0')
+
+    def test_missing_env_file_raises(tmpdir: Path) -> None:
+        path = os.path.join(tmpdir, ".env")
+    
+>       with pytest.warns(UserWarning, match=f"Config file '{path}' not found."):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_config.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\recwarn.py:295: in matches
+    self.match_expr is None or re.search(self.match_expr, str(warning.message))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\__init__.py:177: in search
+    return _compile(pattern, flags).search(string)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\__init__.py:307: in _compile
+    p = _compiler.compile(pattern, flags)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_compiler.py:750: in compile
+    p = _parser.parse(p, flags)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:979: in parse
+    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:460: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:544: in _parse
+    code = _escape(source, this, state)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+source = <re._parser.Tokenizer object at 0x0000025F009D4560>, escape = '\\U'
+state = <re._parser.State object at 0x0000025F009D4B90>
+
+    def _escape(source, escape, state):
+        # handle escape code in expression
+        code = CATEGORIES.get(escape)
+        if code:
+            return code
+        code = ESCAPES.get(escape)
+        if code:
+            return code
+        try:
+            c = escape[1:2]
+            if c == "x":
+                # hexadecimal escape
+                escape += source.getwhile(2, HEXDIGITS)
+                if len(escape) != 4:
+                    raise source.error("incomplete escape %s" % escape, len(escape))
+                return LITERAL, int(escape[2:], 16)
+            elif c == "u" and source.istext:
+                # unicode escape (exactly four digits)
+                escape += source.getwhile(4, HEXDIGITS)
+                if len(escape) != 6:
+                    raise source.error("incomplete escape %s" % escape, len(escape))
+                return LITERAL, int(escape[2:], 16)
+            elif c == "U" and source.istext:
+                # unicode escape (exactly eight digits)
+                escape += source.getwhile(8, HEXDIGITS)
+                if len(escape) != 10:
+>                   raise source.error("incomplete escape %s" % escape, len(escape))
+E                   re.error: incomplete escape \U at position 15
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\re\_parser.py:398: error
+___________________ test_staticfiles_with_package[asyncio] ____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_with_package(test_client_factory: TestClientFactory) -> None:
+        app = StaticFiles(packages=["tests"])
+        client = test_client_factory(app)
+        response = client.get("/example.txt")
+        assert response.status_code == 200
+>       assert response.text == "123\n"
+E       AssertionError: assert '123\r\n' == '123\n'
+E         
+E         - 123
+E         + 123
+E         ?    +
+
+tests\test_staticfiles.py:73: AssertionError
+_____ test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio] ______
+
+tmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_with_invalid_0')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_with_invalid_dir_permissions_returns_401(
+        tmp_path: Path, test_client_factory: TestClientFactory
+    ) -> None:
+        (tmp_path / "example.txt").write_bytes(b"<file content>")
+    
+        original_mode = tmp_path.stat().st_mode
+        tmp_path.chmod(stat.S_IRWXO)
+        try:
+            routes = [
+                Mount(
+                    "/",
+                    app=StaticFiles(directory=os.fsdecode(tmp_path)),
+                    name="static",
+                )
+            ]
+            app = Starlette(routes=routes)
+            client = test_client_factory(app)
+    
+            response = client.get("/example.txt")
+>           assert response.status_code == 401
+E           assert 200 == 401
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_staticfiles.py:432: AssertionError
+_________________ test_staticfiles_follows_symlinks[asyncio] __________________
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli0')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_follows_symlinks(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = os.path.join(tmpdir, "statics")
+        os.mkdir(statics_path)
+    
+        source_path = tempfile.mkdtemp()
+        source_file_path = os.path.join(source_path, "page.html")
+        with open(source_file_path, "w") as file:
+            file.write("<h1>Hello</h1>")
+    
+        statics_file_path = os.path.join(statics_path, "index.html")
+>       os.symlink(source_file_path, statics_file_path)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\tmpaomrtzcf\\page.html' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli0\\statics\\index.html'
+
+tests\test_staticfiles.py:520: OSError
+____________ test_staticfiles_follows_symlink_directories[asyncio] ____________
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli1')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_follows_symlink_directories(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = os.path.join(tmpdir, "statics")
+        statics_html_path = os.path.join(statics_path, "html")
+        os.mkdir(statics_path)
+    
+        source_path = tempfile.mkdtemp()
+        source_file_path = os.path.join(source_path, "page.html")
+        with open(source_file_path, "w") as file:
+            file.write("<h1>Hello</h1>")
+    
+>       os.symlink(source_path, statics_html_path)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\tmpv3jct05i' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli1\\statics\\html'
+
+tests\test_staticfiles.py:541: OSError
+___________________ test_staticfiles_self_symlinks[asyncio] ___________________
+
+tmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks0')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_self_symlinks(tmp_path: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = tmp_path / "statics"
+        statics_path.mkdir()
+    
+        source_file_path = statics_path / "index.html"
+        source_file_path.write_text("<h1>Hello</h1>", encoding="utf-8")
+    
+        statics_symlink_path = tmp_path / "statics_symlink"
+>       statics_symlink_path.symlink_to(statics_path)
+
+tests\test_staticfiles.py:638: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks0/statics_symlink')
+target = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks0/statics')
+target_is_directory = False
+
+    def symlink_to(self, target, target_is_directory=False):
+        """
+        Make this path a symlink pointing to the target path.
+        Note the order of arguments (link, target) is the reverse of os.symlink.
+        """
+        if not hasattr(os, "symlink"):
+            raise NotImplementedError("os.symlink() not available on this system")
+>       os.symlink(target, self, target_is_directory)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_self_symlinks0\\statics' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_self_symlinks0\\statics_symlink'
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1386: OSError
+____________ test_staticfiles_relative_directory_symlinks[asyncio] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_staticfiles_relative_directory_symlinks(test_client_factory: TestClientFactory) -> None:
+        app = StaticFiles(directory="tests/statics", follow_symlink=True)
+        client = test_client_factory(app)
+        response = client.get("/example.txt")
+        assert response.status_code == 200
+>       assert response.text == "123\n"
+E       AssertionError: assert '123\r\n' == '123\n'
+E         
+E         - 123
+E         + 123
+E         ?    +
+
+tests\test_staticfiles.py:654: AssertionError
+_____________________ test_staticfiles_with_package[trio] _____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_with_package(test_client_factory: TestClientFactory) -> None:
+        app = StaticFiles(packages=["tests"])
+        client = test_client_factory(app)
+        response = client.get("/example.txt")
+        assert response.status_code == 200
+>       assert response.text == "123\n"
+E       AssertionError: assert '123\r\n' == '123\n'
+E         
+E         - 123
+E         + 123
+E         ?    +
+
+tests\test_staticfiles.py:73: AssertionError
+_______ test_staticfiles_with_invalid_dir_permissions_returns_401[trio] _______
+
+tmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_with_invalid_1')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_with_invalid_dir_permissions_returns_401(
+        tmp_path: Path, test_client_factory: TestClientFactory
+    ) -> None:
+        (tmp_path / "example.txt").write_bytes(b"<file content>")
+    
+        original_mode = tmp_path.stat().st_mode
+        tmp_path.chmod(stat.S_IRWXO)
+        try:
+            routes = [
+                Mount(
+                    "/",
+                    app=StaticFiles(directory=os.fsdecode(tmp_path)),
+                    name="static",
+                )
+            ]
+            app = Starlette(routes=routes)
+            client = test_client_factory(app)
+    
+            response = client.get("/example.txt")
+>           assert response.status_code == 401
+E           assert 200 == 401
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_staticfiles.py:432: AssertionError
+___________________ test_staticfiles_follows_symlinks[trio] ___________________
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli2')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_follows_symlinks(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = os.path.join(tmpdir, "statics")
+        os.mkdir(statics_path)
+    
+        source_path = tempfile.mkdtemp()
+        source_file_path = os.path.join(source_path, "page.html")
+        with open(source_file_path, "w") as file:
+            file.write("<h1>Hello</h1>")
+    
+        statics_file_path = os.path.join(statics_path, "index.html")
+>       os.symlink(source_file_path, statics_file_path)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\tmpp25ph78h\\page.html' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli2\\statics\\index.html'
+
+tests\test_staticfiles.py:520: OSError
+_____________ test_staticfiles_follows_symlink_directories[trio] ______________
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli3')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_follows_symlink_directories(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = os.path.join(tmpdir, "statics")
+        statics_html_path = os.path.join(statics_path, "html")
+        os.mkdir(statics_path)
+    
+        source_path = tempfile.mkdtemp()
+        source_file_path = os.path.join(source_path, "page.html")
+        with open(source_file_path, "w") as file:
+            file.write("<h1>Hello</h1>")
+    
+>       os.symlink(source_path, statics_html_path)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\tmpq9g6pp9m' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_follows_symli3\\statics\\html'
+
+tests\test_staticfiles.py:541: OSError
+____________________ test_staticfiles_self_symlinks[trio] _____________________
+
+tmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks1')
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_self_symlinks(tmp_path: Path, test_client_factory: TestClientFactory) -> None:
+        statics_path = tmp_path / "statics"
+        statics_path.mkdir()
+    
+        source_file_path = statics_path / "index.html"
+        source_file_path.write_text("<h1>Hello</h1>", encoding="utf-8")
+    
+        statics_symlink_path = tmp_path / "statics_symlink"
+>       statics_symlink_path.symlink_to(statics_path)
+
+tests\test_staticfiles.py:638: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks1/statics_symlink')
+target = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-256/test_staticfiles_self_symlinks1/statics')
+target_is_directory = False
+
+    def symlink_to(self, target, target_is_directory=False):
+        """
+        Make this path a symlink pointing to the target path.
+        Note the order of arguments (link, target) is the reverse of os.symlink.
+        """
+        if not hasattr(os, "symlink"):
+            raise NotImplementedError("os.symlink() not available on this system")
+>       os.symlink(target, self, target_is_directory)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_self_symlinks1\\statics' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_self_symlinks1\\statics_symlink'
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1386: OSError
+_____________ test_staticfiles_relative_directory_symlinks[trio] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_staticfiles_relative_directory_symlinks(test_client_factory: TestClientFactory) -> None:
+        app = StaticFiles(directory="tests/statics", follow_symlink=True)
+        client = test_client_factory(app)
+        response = client.get("/example.txt")
+        assert response.status_code == 200
+>       assert response.text == "123\n"
+E       AssertionError: assert '123\r\n' == '123\n'
+E         
+E         - 123
+E         + 123
+E         ?    +
+
+tests\test_staticfiles.py:654: AssertionError
+___________ test_staticfiles_disallows_path_traversal_with_symlinks ___________
+
+tmpdir = local('C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_disallows_pat0')
+
+    def test_staticfiles_disallows_path_traversal_with_symlinks(tmpdir: Path) -> None:
+        statics_path = os.path.join(tmpdir, "statics")
+    
+        root_source_path = tempfile.mkdtemp()
+        source_path = os.path.join(root_source_path, "statics")
+        os.mkdir(source_path)
+    
+        source_file_path = os.path.join(root_source_path, "index.html")
+        with open(source_file_path, "w") as file:
+            file.write("<h1>Hello</h1>")
+    
+>       os.symlink(source_path, statics_path)
+E       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\Users\\david\\AppData\\Local\\Temp\\tmpa1wfmu04\\statics' -> 'C:\\Users\\david\\AppData\\Local\\Temp\\pytest-of-david\\pytest-256\\test_staticfiles_disallows_pat0\\statics'
+
+tests\test_staticfiles.py:563: OSError
+=========================== short test summary info ===========================
+SKIPPED [2] tests\test_staticfiles.py:475: os.pathconf is Unix-only
+14 failed, 1028 passed, 2 skipped, 2 xfailed in 9.81s

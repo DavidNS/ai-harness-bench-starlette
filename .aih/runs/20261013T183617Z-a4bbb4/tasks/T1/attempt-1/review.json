@@ -1,0 +1,49 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC1",
+      "line": 41,
+      "note": "The generator body is chunked, so it has no Content-Length. The test asserts a 413 status, the text 'Content Too Large' and a text/plain content type.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_rejects_body_over_limit_without_content_length"
+    },
+    {
+      "criterion": "ACC2",
+      "line": 62,
+      "note": "A 250-byte file is under the 300-byte limit but the whole multipart body is over it, and the test asserts 413. A 10-byte upload returns 200. Per-chunk streaming counting is covered separately by test_streaming_body_counted_per_chunk.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_multipart_upload_counts_overhead"
+    },
+    {
+      "criterion": "ACC3",
+      "line": 93,
+      "note": "The receive stub raises AssertionError if it is called and the app is never invoked. A 413 is sent and the scope key is absent. A client-level test covers an endpoint that never reads the body.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_content_length_failfast"
+    },
+    {
+      "criterion": "ACC4",
+      "line": 109,
+      "note": "A body of exactly 10 bytes is accepted and returns '10'. An 11-byte body with a Content-Length of 5 gets 413.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+    },
+    {
+      "criterion": "ACC5",
+      "line": 142,
+      "note": "The app starts its response, then receive raises HTTPException(413). The test asserts that only http.response.start was sent and that the HTTPException propagates.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+    },
+    {
+      "criterion": "ACC6",
+      "line": 176,
+      "note": "The test checks the key is set inside the app and removed afterwards. It checks a previous value of 99 is restored. It checks restoration after a RuntimeError, both with and without a previous value.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_scope_key_set_and_restored"
+    }
+  ],
+  "findings": [],
+  "summary": "No blocking issues found. The middleware does what the task asks and each behaviour criterion has a test whose assertion would fail if it broke. One untested edge: an HTTPException that is not the body-limit one, raised after the limit was exceeded, is turned into a 413. That is arguably correct and not worth another attempt.",
+  "verdict": "approve"
+}

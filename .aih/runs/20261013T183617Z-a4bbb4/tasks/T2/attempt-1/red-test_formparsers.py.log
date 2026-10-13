@@ -1,0 +1,242 @@
+............................................FF.......................... [ 69%]
+.......................FF.......                                         [100%]
+================================== FAILURES ===================================
+____________ test_multipart_closes_tempfiles_on_interrupt[asyncio] ____________
+
+    @pytest.mark.anyio
+    async def test_multipart_closes_tempfiles_on_interrupt() -> None:
+        async def stream() -> AsyncGenerator[bytes, None]:
+            yield b'--B\r\nContent-Disposition: form-data; name="f"; filename="f.txt";\r\n\r\npartial data'
+            raise HTTPException(status_code=413)
+    
+        headers = Headers({"Content-Type": "multipart/form-data; boundary=B"})
+        parser = MultiPartParser(headers, stream())
+        with pytest.raises(HTTPException) as exc_info:
+            await parser.parse()
+        assert exc_info.value.status_code == 413
+        assert len(parser._files_to_close_on_error) == 1
+>       assert all(file.closed for file in parser._files_to_close_on_error)
+E       assert False
+E        +  where False = all(<generator object test_multipart_closes_tempfiles_on_interrupt.<locals>.<genexpr> at 0x0000026FB9F8FB80>)
+
+tests\test_formparsers.py:866: AssertionError
+________________ test_max_fields_is_customizable_high[asyncio] ________________
+
+self = <tempfile.SpooledTemporaryFile object at 0x0000026FBA707AC0>
+
+    def __del__(self):
+        if not self.closed:
+>           _warnings.warn(
+                "Unclosed file {!r}".format(self),
+                ResourceWarning,
+                stacklevel=2,
+                source=self
+            )
+E           ResourceWarning: Unclosed file <tempfile.SpooledTemporaryFile object at 0x0000026FBA707AC0>
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py:752: ResourceWarning
+
+The above exception was the direct cause of the following exception:
+
+cls = <class '_pytest.runner.CallInfo'>
+func = <function call_and_report.<locals>.<lambda> at 0x0000026FBA927D80>
+when = 'call'
+reraise = (<class '_pytest.outcomes.Exit'>, <class 'KeyboardInterrupt'>)
+
+    @classmethod
+    def from_call(
+        cls,
+        func: Callable[[], TResult],
+        when: Literal["collect", "setup", "call", "teardown"],
+        reraise: type[BaseException] | tuple[type[BaseException], ...] | None = None,
+    ) -> CallInfo[TResult]:
+        """Call func, wrapping the result in a CallInfo.
+    
+        :param func:
+            The function to call. Called without arguments.
+        :type func: Callable[[], _pytest.runner.TResult]
+        :param when:
+            The phase in which the function is called.
+        :param reraise:
+            Exception or exceptions that shall propagate if raised by the
+            function, instead of being wrapped in the CallInfo.
+        """
+        excinfo = None
+        instant = timing.Instant()
+        try:
+>           result: TResult | None = func()
+                                     ^^^^^^
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:361: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\skipping.py:268: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:183: in pytest_runtest_call
+    collect_unraisable(item.config)
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:79: in collect_unraisable
+    raise errors[0]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = <_pytest.config.Config object at 0x0000026FB721EE10>
+
+    def collect_unraisable(config: Config) -> None:
+        pop_unraisable = config.stash[unraisable_exceptions].pop
+        errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+        meta = None
+        hook_error = None
+        try:
+            while True:
+                try:
+                    meta = pop_unraisable()
+                except IndexError:
+                    break
+    
+                if isinstance(meta, BaseException):
+                    hook_error = RuntimeError("Failed to process unraisable exception")
+                    hook_error.__cause__ = meta
+                    errors.append(hook_error)
+                    continue
+    
+                msg = meta.msg
+                try:
+>                   warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+E                   pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x0000026FB6A34AE0>
+E                   Enable tracemalloc to get traceback where the object was allocated.
+E                   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:67: PytestUnraisableExceptionWarning
+_____________ test_multipart_closes_tempfiles_on_interrupt[trio] ______________
+
+    @pytest.mark.anyio
+    async def test_multipart_closes_tempfiles_on_interrupt() -> None:
+        async def stream() -> AsyncGenerator[bytes, None]:
+            yield b'--B\r\nContent-Disposition: form-data; name="f"; filename="f.txt";\r\n\r\npartial data'
+            raise HTTPException(status_code=413)
+    
+        headers = Headers({"Content-Type": "multipart/form-data; boundary=B"})
+        parser = MultiPartParser(headers, stream())
+        with pytest.raises(HTTPException) as exc_info:
+            await parser.parse()
+        assert exc_info.value.status_code == 413
+        assert len(parser._files_to_close_on_error) == 1
+>       assert all(file.closed for file in parser._files_to_close_on_error)
+E       assert False
+E        +  where False = all(<generator object test_multipart_closes_tempfiles_on_interrupt.<locals>.<genexpr> at 0x0000026FB9F8E440>)
+
+tests\test_formparsers.py:866: AssertionError
+_________________ test_max_fields_is_customizable_high[trio] __________________
+
+self = <tempfile.SpooledTemporaryFile object at 0x0000026FBAB6E7A0>
+
+    def __del__(self):
+        if not self.closed:
+>           _warnings.warn(
+                "Unclosed file {!r}".format(self),
+                ResourceWarning,
+                stacklevel=2,
+                source=self
+            )
+E           ResourceWarning: Unclosed file <tempfile.SpooledTemporaryFile object at 0x0000026FBAB6E7A0>
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py:752: ResourceWarning
+
+The above exception was the direct cause of the following exception:
+
+cls = <class '_pytest.runner.CallInfo'>
+func = <function call_and_report.<locals>.<lambda> at 0x0000026FBA927420>
+when = 'call'
+reraise = (<class '_pytest.outcomes.Exit'>, <class 'KeyboardInterrupt'>)
+
+    @classmethod
+    def from_call(
+        cls,
+        func: Callable[[], TResult],
+        when: Literal["collect", "setup", "call", "teardown"],
+        reraise: type[BaseException] | tuple[type[BaseException], ...] | None = None,
+    ) -> CallInfo[TResult]:
+        """Call func, wrapping the result in a CallInfo.
+    
+        :param func:
+            The function to call. Called without arguments.
+        :type func: Callable[[], _pytest.runner.TResult]
+        :param when:
+            The phase in which the function is called.
+        :param reraise:
+            Exception or exceptions that shall propagate if raised by the
+            function, instead of being wrapped in the CallInfo.
+        """
+        excinfo = None
+        instant = timing.Instant()
+        try:
+>           result: TResult | None = func()
+                                     ^^^^^^
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:361: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\skipping.py:268: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:183: in pytest_runtest_call
+    collect_unraisable(item.config)
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:79: in collect_unraisable
+    raise errors[0]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = <_pytest.config.Config object at 0x0000026FB721EE10>
+
+    def collect_unraisable(config: Config) -> None:
+        pop_unraisable = config.stash[unraisable_exceptions].pop
+        errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+        meta = None
+        hook_error = None
+        try:
+            while True:
+                try:
+                    meta = pop_unraisable()
+                except IndexError:
+                    break
+    
+                if isinstance(meta, BaseException):
+                    hook_error = RuntimeError("Failed to process unraisable exception")
+                    hook_error.__cause__ = meta
+                    errors.append(hook_error)
+                    continue
+    
+                msg = meta.msg
+                try:
+>                   warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+E                   pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x0000026FB6A34AE0>
+E                   Enable tracemalloc to get traceback where the object was allocated.
+E                   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+..\..\..\..\..\..\..\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:67: PytestUnraisableExceptionWarning
+4 failed, 100 passed in 1.98s

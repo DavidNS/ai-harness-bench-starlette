@@ -1,0 +1,141 @@
+{
+  "attempts_total": 3,
+  "base_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+  "delivery": null,
+  "gate_failures": [
+    {
+      "attempt": 1,
+      "codes": [
+        "change.replan_requested"
+      ],
+      "gate": "change.implemented",
+      "task": "T3"
+    }
+  ],
+  "head": "b03f8a8ee0c07bdf51148405eb9cd9abcd70ab42",
+  "human_decisions": [
+    {
+      "actor": "policy",
+      "decision": "approve",
+      "gate": "human.plan_approved"
+    },
+    {
+      "actor": "policy",
+      "decision": "approve",
+      "gate": "human.plan_approved"
+    }
+  ],
+  "models": [
+    "claude-sonnet-5-5"
+  ],
+  "plan_tasks": [
+    {
+      "files": [
+        "starlette/middleware/body_limit.py",
+        "tests/middleware/test_body_limit.py"
+      ],
+      "id": "T1",
+      "key": "T3",
+      "tests": [
+        "tests/middleware/test_body_limit.py"
+      ]
+    },
+    {
+      "files": [
+        "starlette/applications.py",
+        "starlette/routing.py",
+        "tests/test_applications.py",
+        "tests/test_routing.py"
+      ],
+      "id": "T2",
+      "key": "T4",
+      "tests": [
+        "tests/test_applications.py",
+        "tests/test_routing.py"
+      ]
+    }
+  ],
+  "plan_version": 2,
+  "run_dir": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\results\\arms\\detail\\20261013T183615Z-starlette-max-body-size-gated-1\\aih-data\\runs\\20261013T183617Z-a4bbb4",
+  "run_id": "20261013T183617Z-a4bbb4",
+  "schema_version": 1,
+  "sessions": 9,
+  "status": "implemented",
+  "tasks": [
+    {
+      "attempts": 1,
+      "commit": "7d9aaa9fb2369a6cd5863f1f69e853f9b1f80cad",
+      "coverage": [
+        {
+          "criterion": "ACC1",
+          "line": 41,
+          "note": "The generator body is chunked, so it has no Content-Length. The test asserts a 413 status, the text 'Content Too Large' and a text/plain content type.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_rejects_body_over_limit_without_content_length"
+        },
+        {
+          "criterion": "ACC2",
+          "line": 62,
+          "note": "A 250-byte file is under the 300-byte limit but the whole multipart body is over it, and the test asserts 413. A 10-byte upload returns 200. Per-chunk streaming counting is covered separately by test_streaming_body_counted_per_chunk.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_multipart_upload_counts_overhead"
+        },
+        {
+          "criterion": "ACC3",
+          "line": 93,
+          "note": "The receive stub raises AssertionError if it is called and the app is never invoked. A 413 is sent and the scope key is absent. A client-level test covers an endpoint that never reads the body.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_content_length_failfast"
+        },
+        {
+          "criterion": "ACC4",
+          "line": 109,
+          "note": "A body of exactly 10 bytes is accepted and returns '10'. An 11-byte body with a Content-Length of 5 gets 413.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+        },
+        {
+          "criterion": "ACC5",
+          "line": 142,
+          "note": "The app starts its response, then receive raises HTTPException(413). The test asserts that only http.response.start was sent and that the HTTPException propagates.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+        },
+        {
+          "criterion": "ACC6",
+          "line": 176,
+          "note": "The test checks the key is set inside the app and removed afterwards. It checks a previous value of 99 is restored. It checks restoration after a RuntimeError, both with and without a previous value.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_scope_key_set_and_restored"
+        }
+      ],
+      "id": "T1",
+      "status": "committed"
+    },
+    {
+      "attempts": 1,
+      "commit": "b03f8a8ee0c07bdf51148405eb9cd9abcd70ab42",
+      "coverage": [
+        {
+          "criterion": "ACC9",
+          "line": 866,
+          "note": "The stream raises HTTPException(413) after the file part has started. The test asserts that the exception propagates, that one temp file was registered, and that it is closed. With the old `except (MultiPartException, OSError)` clause the file would stay open, so the assertion would fail.",
+          "status": "covered",
+          "test": "tests/test_formparsers.py::test_multipart_closes_tempfiles_on_interrupt"
+        }
+      ],
+      "id": "T2",
+      "status": "committed"
+    }
+  ],
+  "usage": {
+    "cache_creation_input_tokens": 113015,
+    "cache_read_input_tokens": 366630,
+    "cost_usd": 0.943129,
+    "duration_ms": 215811,
+    "input_tokens": 58,
+    "num_turns": 52,
+    "output_tokens": 29457
+  },
+  "worktree": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\results\\arms\\detail\\20261013T183615Z-starlette-max-body-size-gated-1\\aih-data\\worktrees\\20261013T183617Z-a4bbb4"
+}
