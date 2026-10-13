@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,12 +49,16 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: Maximum size in bytes of the HTTP request body. Larger requests
+                get a `413 Content Too Large` response. `None` means unlimited. Routes,
+                mounts and routers can override it with their own `max_body_size`.
         """
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
+        self.max_body_size = max_body_size
         self.middleware_stack: ASGIApp | None = None
 
     def build_middleware_stack(self) -> ASGIApp:
@@ -65,8 +72,15 @@ class Starlette:
             else:
                 exception_handlers[key] = value
 
+        body_limit = (
+            []
+            if self.max_body_size is None
+            else [Middleware(RequestBodyLimitMiddleware, max_body_size=self.max_body_size)]
+        )
+
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + body_limit
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )

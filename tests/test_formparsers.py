@@ -986,3 +986,18 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+@pytest.mark.anyio
+async def test_multipart_closes_temp_files_when_stream_is_interrupted() -> None:
+    class Interrupted(Exception): ...
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield b'--b\r\nContent-Disposition: form-data; name="f"; filename="a.txt"\r\n\r\nhello'
+        raise Interrupted()
+
+    parser = MultiPartParser(Headers({"content-type": "multipart/form-data; boundary=b"}), stream())
+    with pytest.raises(Interrupted):
+        await parser.parse()
+    assert len(parser._files_to_close_on_error) == 1
+    assert parser._files_to_close_on_error[0].closed

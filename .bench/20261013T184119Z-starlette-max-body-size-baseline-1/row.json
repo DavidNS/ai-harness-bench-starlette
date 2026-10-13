@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "run_id": "20261013T184119Z-starlette-max-body-size-baseline-1",
+ "case": "starlette-max-body-size",
+ "arm": "baseline",
+ "n": 1,
+ "model": "claude-sonnet-5-5",
+ "started_at": "20261013T184119Z",
+ "fixture_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+ "wall_seconds": 190.0,
+ "files": [
+  "starlette/applications.py",
+  "starlette/formparsers.py",
+  "starlette/middleware/body_limit.py",
+  "starlette/routing.py",
+  "tests/middleware/test_body_limit.py",
+  "tests/test_formparsers.py"
+ ],
+ "shortstat": "6 files changed, 399 insertions(+), 3 deletions(-)",
+ "diff_lines": 527,
+ "judge": {
+  "ok": false,
+  "fail_to_pass_ok": false,
+  "pass_to_pass_ok": true,
+  "hidden_files": [
+   "tests.patch"
+  ],
+  "baseline_failures": [
+   "tests/test_config.py::test_missing_env_file_raises",
+   "tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[trio]"
+  ],
+  "new_failures": [],
+  "hidden": {
+   "target": "tests/middleware/test_body_limit.py tests/test_formparsers.py",
+   "exit_code": 1,
+   "passed": 136,
+   "failed": 4,
+   "errors": 0,
+   "skipped": 0,
+   "summary": "4 failed, 32 passed in 0.36s | 104 passed in 1.56s",
+   "output_tail": " content=b\"123456\", headers={\"Content-Length\": \"1\"})\n        assert response.status_code == 413\n>       assert response.text == \"Content Too Large\"\nE       AssertionError: assert 'Request Entity Too Large' == 'Content Too Large'\nE         \nE         - Content Too Large\nE         + Request Entity Too Large\n\ntests\\middleware\\test_body_limit.py:137: AssertionError\n__________ test_route_override_survives_shallow_scope_copy[asyncio] ___________\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})\n\n    def test_route_override_survives_shallow_scope_copy(test_client_factory: TestClientFactory) -> None:\n        class CopyScopeMiddleware:\n            def __init__(self, app: ASGIApp) -> None:\n                self.app = app\n    \n            async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:\n                await self.app(dict(scope), receive, send)\n    \n        app = Starlette(\n            routes=[Route(\"/\", echo, methods=[\"POST\"], max_body_size=10)],\n            middleware=[Middleware(CopyScopeMiddleware)],\n            max_body_size=5,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"12345678\")\n>       assert response.status_code == 200\nE       assert 413 == 200\nE        +  where 413 = <Response [413 Request Entity Too Large]>.status_code\n\ntests\\middleware\\test_body_limit.py:337: AssertionError\n____ test_received_bytes_are_counted_with_unreliable_content_length[trio] _____\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_received_bytes_are_counted_with_unreliable_content_length(test_client_factory: TestClientFactory) -> None:\n        app = RequestBodyLimitMiddleware(\n            Starlette(routes=[Route(\"/\", echo, methods=[\"POST\"])]),\n            max_body_size=5,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"123456\", headers={\"Content-Length\": \"1\"})\n        assert response.status_code == 413\n>       assert response.text == \"Content Too Large\"\nE       AssertionError: assert 'Request Entity Too Large' == 'Content Too Large'\nE         \nE         - Content Too Large\nE         + Request Entity Too Large\n\ntests\\middleware\\test_body_limit.py:137: AssertionError\n____________ test_route_override_survives_shallow_scope_copy[trio] ____________\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_route_override_survives_shallow_scope_copy(test_client_factory: TestClientFactory) -> None:\n        class CopyScopeMiddleware:\n            def __init__(self, app: ASGIApp) -> None:\n                self.app = app\n    \n            async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:\n                await self.app(dict(scope), receive, send)\n    \n        app = Starlette(\n            routes=[Route(\"/\", echo, methods=[\"POST\"], max_body_size=10)],\n            middleware=[Middleware(CopyScopeMiddleware)],\n            max_body_size=5,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"12345678\")\n>       assert response.status_code == 200\nE       assert 413 == 200\nE        +  where 413 = <Response [413 Request Entity Too Large]>.status_code\n\ntests\\middleware\\test_body_limit.py:337: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/middleware/test_body_limit.py::test_received_bytes_are_counted_with_unreliable_content_length[asyncio]\nFAILED tests/middleware/test_body_limit.py::test_route_override_survives_shallow_scope_copy[asyncio]\nFAILED tests/middleware/test_body_limit.py::test_received_bytes_are_counted_with_unreliable_content_length[trio]\nFAILED tests/middleware/test_body_limit.py::test_route_override_survives_shallow_scope_copy[trio]\n4 failed, 32 passed in 0.36s\n........................................................................ [ 69%]\n................................                                         [100%]\n104 passed in 1.56s\n"
+  },
+  "suite": {
+   "target": "tests",
+   "exit_code": 1,
+   "passed": 903,
+   "failed": 14,
+   "errors": 0,
+   "skipped": 2,
+   "summary": "14 failed, 903 passed, 2 skipped, 2 xfailed in 7.33s",
+   "output_tail": "et = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-268/test_staticfiles_self_symlinks1/statics')\ntarget_is_directory = False\n\n    def symlink_to(self, target, target_is_directory=False):\n        \"\"\"\n        Make this path a symlink pointing to the target path.\n        Note the order of arguments (link, target) is the reverse of os.symlink.\n        \"\"\"\n        if not hasattr(os, \"symlink\"):\n            raise NotImplementedError(\"os.symlink() not available on this system\")\n>       os.symlink(target, self, target_is_directory)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-268\\\\test_staticfiles_self_symlinks1\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-268\\\\test_staticfiles_self_symlinks1\\\\statics_symlink'\n\n..\\..\\..\\..\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1386: OSError\n_____________ test_staticfiles_relative_directory_symlinks[trio] ______________\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_staticfiles_relative_directory_symlinks(test_client_factory: TestClientFactory) -> None:\n        app = StaticFiles(directory=\"tests/statics\", follow_symlink=True)\n        client = test_client_factory(app)\n        response = client.get(\"/example.txt\")\n        assert response.status_code == 200\n>       assert response.text == \"123\\n\"\nE       AssertionError: assert '123\\r\\n' == '123\\n'\nE         \nE         - 123\nE         + 123\nE         ?    +\n\ntests\\test_staticfiles.py:654: AssertionError\n___________ test_staticfiles_disallows_path_traversal_with_symlinks ___________\n\ntmpdir = local('C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-268\\\\test_staticfiles_disallows_pat0')\n\n    def test_staticfiles_disallows_path_traversal_with_symlinks(tmpdir: Path) -> None:\n        statics_path = os.path.join(tmpdir, \"statics\")\n    \n        root_source_path = tempfile.mkdtemp()\n        source_path = os.path.join(root_source_path, \"statics\")\n        os.mkdir(source_path)\n    \n        source_file_path = os.path.join(root_source_path, \"index.html\")\n        with open(source_file_path, \"w\") as file:\n            file.write(\"<h1>Hello</h1>\")\n    \n>       os.symlink(source_path, statics_path)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\tmpmf7f9z35\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-268\\\\test_staticfiles_disallows_pat0\\\\statics'\n\ntests\\test_staticfiles.py:563: OSError\n=========================== short test summary info ===========================\nFAILED tests/test_config.py::test_missing_env_file_raises - re.error: incompl...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_package[asyncio] - As...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_with_package[trio] - Asser...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio] - OSEr...\nFAILED tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks\n14 failed, 903 passed, 2 skipped, 2 xfailed in 7.33s\n"
+  }
+ },
+ "arm_report": {
+  "exit": 0,
+  "usage": {
+   "cost_usd": 0.5253028,
+   "num_turns": 20,
+   "duration_ms": 188000,
+   "input_tokens": 32,
+   "output_tokens": 21760,
+   "cache_read_input_tokens": 878788,
+   "cache_creation_input_tokens": 54940,
+   "duration_api_ms": 148773
+  },
+  "sessions": 1,
+  "permission_denials": 4,
+  "result": "I've added `max_body_size` to `Starlette`, `Router`, `Mount` and `Route`, plus the new `RequestBodyLimitMiddleware` in `starlette/middleware/body_limit.py`. All the new tests pass. The full suite has 14 failures, all in `test_config.py` and `test_staticfiles.py`.\n\nThose 14 look Windows-specific: the symlink tests fail with `WinError 1314`, and the `test_config.py` one is a path-escape regex error. I didn't touch either area, but I didn't run the suite before my changes to confirm they were already failing.\n\nHow it behaves:\n\n- **Counting:** the middleware counts bytes from the server, so multipart data and encoding overhead are included. Over the limit, it raises `HTTPException(413)` from `receive`. If no response has started, it answers with a plain-text `413 Content Too Large`. If a response has already started, it re-raises and sends nothing second.\n- **`Content-Length` fail-fast:** a declared length over the limit is rejected before the body is read. An absent, invalid or understated header never bypasses the count.\n- **Nesting:** only the outermost middleware counts. Inner limits just change the effective limit in the scope under `MAX_BODY_SIZE_SCOPE_KEY` and restore the previous value afterwards. So a route can raise or lower the app limit.\n- **Order:** the app-level limit sits right inside `ServerErrorMiddleware`, before user middleware, so middleware that reads the body is limited too.\n- **Multipart cleanup:** the multipart parser now closes its temporary files on any ",
+  "stderr": ""
+ },
+ "usage": {
+  "cost_usd": 0.5253028,
+  "num_turns": 20,
+  "duration_ms": 188000,
+  "duration_api_ms": 148773,
+  "input_tokens": 32,
+  "output_tokens": 21760,
+  "cache_read_input_tokens": 878788,
+  "cache_creation_input_tokens": 54940
+ },
+ "sessions": 1,
+ "intent_version": 2
+}
