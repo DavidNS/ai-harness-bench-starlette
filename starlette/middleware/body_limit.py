@@ -15,6 +15,8 @@ class _BodyState:
         self.total = 0
         self.exceeded = False
         self.response_started = False
+        self.replaced = False
+        self.limit = 0
 
 
 class RequestBodyLimitMiddleware:
@@ -45,17 +47,13 @@ class RequestBodyLimitMiddleware:
         try:
             content_length = Headers(scope=scope).get("content-length")
             declared = int(content_length) if content_length is not None and content_length.isdigit() else 0
-            too_large = declared > self.max_body_size
+            state.limit = self.max_body_size
             if not owner:
                 # Counting is already done by the outermost limited app.
-                if too_large:
+                if declared > self.max_body_size:
                     state.exceeded = True
                     raise HTTPException(status_code=413)
                 await self.app(scope, receive, send)
-                return
-
-            if too_large:
-                await self._reject(scope, receive, send)
                 return
 
             async def limited_receive() -> Message:
@@ -68,12 +66,21 @@ class RequestBodyLimitMiddleware:
                 return message
 
             async def tracking_send(message: Message) -> None:
+                if state.replaced:
+                    return
                 if message["type"] == "http.response.start":
                     state.response_started = True
+                    if declared > state.limit:
+                        # The limit is final once the app answers: replace its response.
+                        state.replaced = True
+                        await self._reject(scope, receive, send)
+                        return
                 await send(message)
 
             try:
                 await self.app(scope, limited_receive, tracking_send)
+                if not state.response_started and declared > state.limit:
+                    await self._reject(scope, receive, send)
             except HTTPException as exc:
                 if exc.status_code != 413 or not state.exceeded or state.response_started:
                     raise

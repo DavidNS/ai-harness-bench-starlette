@@ -83,11 +83,41 @@ def test_content_length_failfast(test_client_factory: TestClientFactory) -> None
     response = client.post("/", content=b"x" * 20)
     assert response.status_code == 413
     assert response.text == "Content Too Large"
-    assert never_reads.called is False  # type: ignore[attr-defined]
+    # The endpoint runs, but its own response is replaced by the 413.
+    assert never_reads.called is True  # type: ignore[attr-defined]
 
+    never_reads.called = False  # type: ignore[attr-defined]
     response = client.post("/", content=b"x" * 5)
     assert response.status_code == 200
+    assert response.text == "ok"
     assert never_reads.called is True  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_content_length_failfast_sends_exactly_one_response() -> None:
+    sent, _ = await run(
+        RequestBodyLimitMiddleware(never_reads, max_body_size=10),
+        [b"x" * 20],
+        headers=[(b"content-length", b"20")],
+    )
+    assert [m["type"] for m in sent] == ["http.response.start", "http.response.body"]
+    assert status_of(sent) == 413
+    assert body_of(sent) == b"Content Too Large"
+
+
+@pytest.mark.anyio
+async def test_content_length_failfast_when_app_returns_without_response() -> None:
+    async def silent(scope: Scope, receive: Receive, send: Send) -> None:
+        pass
+
+    app = RequestBodyLimitMiddleware(silent, max_body_size=10)
+
+    sent, _ = await run(app, [b"x" * 20], headers=[(b"content-length", b"20")])
+    assert status_of(sent) == 413
+    assert body_of(sent) == b"Content Too Large"
+
+    sent, _ = await run(app, [b"x" * 5], headers=[(b"content-length", b"5")])
+    assert sent == []
 
 
 @pytest.mark.anyio
@@ -220,6 +250,14 @@ async def test_nested_limits_raise_and_lower_the_outer_limit() -> None:
     assert status_of(sent) == 200
     assert body_of(sent) == b"50"
     assert MAX_BODY_SIZE_SCOPE_KEY not in scope
+
+    # The declared Content-Length is checked against the final (inner) limit.
+    inner_calls.clear()
+    raised = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=100), max_body_size=10)
+    sent, _ = await run(raised, [b"x" * 50], headers=[(b"content-length", b"50")])
+    assert status_of(sent) == 200
+    assert body_of(sent) == b"50"
+    assert inner_calls == [100]
 
     # Inner limit lowers the outer one.
     lowered = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=5), max_body_size=100)
