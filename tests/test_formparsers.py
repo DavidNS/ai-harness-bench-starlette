@@ -14,6 +14,7 @@ import pytest
 
 from starlette.applications import Starlette
 from starlette.datastructures import Headers, UploadFile
+from starlette.exceptions import HTTPException
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser, _user_safe_decode
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -848,6 +849,21 @@ def test_max_files_is_customizable_low_raises(
         )
         assert res.status_code == 400
         assert res.text == "Too many files. Maximum number of files is 1."
+
+
+@pytest.mark.anyio
+async def test_multipart_closes_tempfiles_on_interrupt() -> None:
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield b'--B\r\nContent-Disposition: form-data; name="f"; filename="f.txt";\r\n\r\npartial data'
+        raise HTTPException(status_code=413)
+
+    headers = Headers({"Content-Type": "multipart/form-data; boundary=B"})
+    parser = MultiPartParser(headers, stream())
+    with pytest.raises(HTTPException) as exc_info:
+        await parser.parse()
+    assert exc_info.value.status_code == 413
+    assert len(parser._files_to_close_on_error) == 1
+    assert all(file.closed for file in parser._files_to_close_on_error)
 
 
 def test_max_fields_is_customizable_high(test_client_factory: TestClientFactory) -> None:
