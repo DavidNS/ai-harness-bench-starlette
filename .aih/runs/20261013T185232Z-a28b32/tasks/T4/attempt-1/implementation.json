@@ -1,0 +1,26 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC17",
+      "note": "test_default_is_unlimited, test_limit_with_content_length, test_limit_without_content_length and test_content_length_fail_fast_when_endpoint_ignores_body, each parametrized over starlette/router/mount/route. Not run."
+    },
+    {
+      "criterion": "ACC18",
+      "note": "test_app_middleware_reading_body_is_limited. Not run."
+    },
+    {
+      "criterion": "ACC19",
+      "note": "test_inner_limit_raises_outer_limit and test_inner_limit_lowers_outer_limit (router/mount/route), plus test_sibling_route_keeps_outer_limit. Not run."
+    },
+    {
+      "criterion": "ACC20",
+      "note": "test_multipart_temp_files_closed_on_body_limit. Not run."
+    },
+    {
+      "criterion": "ACC21",
+      "note": "tests/test_max_body_size.py exists; tests/middleware/test_body_limit.py came from T1. The existing suite was not run here."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Fixed a syntax error I introduced in starlette/applications.py (the import line was missing a space after `starlette.middleware.errors`). That error stopped the test module from importing. The tests are still unrun, so I haven't confirmed they pass."
+}

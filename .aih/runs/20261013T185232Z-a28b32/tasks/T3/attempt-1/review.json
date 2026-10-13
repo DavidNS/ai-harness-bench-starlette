@@ -1,0 +1,71 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC12",
+      "line": 256,
+      "note": "Outer 10, inner 100, Content-Length 50 returns 200 and the inner spy sees limit 100.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_nested_limits_raise_and_lower_the_outer_limit"
+    },
+    {
+      "criterion": "ACC13",
+      "line": 104,
+      "note": "Asserts exactly start and body messages, status 413 and the plain text body; the app-returns-silently case is covered by a separate test.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_content_length_failfast_sends_exactly_one_response"
+    },
+    {
+      "criterion": "ACC14",
+      "line": 124,
+      "note": "Understated header and exact-limit body are exercised; the no-Content-Length case is in test_limit_enforced_without_content_length.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+    },
+    {
+      "criterion": "ACC15",
+      "line": 167,
+      "note": "Existing test for the limit crossed after the response has started.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+    },
+    {
+      "criterion": "ACC16",
+      "line": 220,
+      "note": "Existing test checks the scope key during the run and its restoration afterwards.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_scope_key"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tests/middleware/test_body_limit.py",
+      "line": 240,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test sends a Content-Length above an inner lowered limit but below the outer one; the nested immediate-check branch (body_limit.py:53) is untested with a declared length."
+    },
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 82,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "If the app raises a non-HTTPException error with an oversized Content-Length and no response, the 413 is skipped and the error propagates; no test covers this."
+    },
+    {
+      "file": "tests/middleware/test_body_limit.py",
+      "line": 86,
+      "pass": 3,
+      "severity": "advisory",
+      "text": "The assertion `never_reads.called is False` became `is True`; this follows from the deferred design, and the new exactly-one-response test compensates."
+    },
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 82,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "state.limit is set on entry by each nested instance but never restored on exit, so after an inner app returns the outer check uses the inner value; harmless today but fragile."
+    }
+  ],
+  "summary": "The deferred Content-Length check is implemented as specified and tested for the raise, reject and silent-app cases. I found only advisory gaps. I read the middleware in full but only grepped the test file for function names, so the coverage line numbers are the lines of the test functions, not of the decisive assertions.",
+  "verdict": "approve"
+}

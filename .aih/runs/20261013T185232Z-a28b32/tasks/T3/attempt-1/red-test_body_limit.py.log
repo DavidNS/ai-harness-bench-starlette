@@ -1,0 +1,91 @@
+.F.......F.F.......F                                                     [100%]
+================================== FAILURES ===================================
+____________________ test_content_length_failfast[asyncio] ____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_content_length_failfast(test_client_factory: TestClientFactory) -> None:
+        never_reads.called = False  # type: ignore[attr-defined]
+        client = test_client_factory(RequestBodyLimitMiddleware(never_reads, max_body_size=10))
+    
+        response = client.post("/", content=b"x" * 20)
+        assert response.status_code == 413
+        assert response.text == "Content Too Large"
+        # The endpoint runs, but its own response is replaced by the 413.
+>       assert never_reads.called is True  # type: ignore[attr-defined]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert False is True
+E        +  where False = never_reads.called
+
+tests\middleware\test_body_limit.py:87: AssertionError
+_________ test_nested_limits_raise_and_lower_the_outer_limit[asyncio] _________
+
+    @pytest.mark.anyio
+    async def test_nested_limits_raise_and_lower_the_outer_limit() -> None:
+        inner_calls: list[object] = []
+    
+        async def spy_read_all(scope: Scope, receive: Receive, send: Send) -> None:
+            inner_calls.append(scope[MAX_BODY_SIZE_SCOPE_KEY])
+            await read_all(scope, receive, send)
+    
+        # Inner limit raises the outer one.
+        raised = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=100), max_body_size=5)
+        sent, scope = await run(raised, [b"x" * 50])
+        assert status_of(sent) == 200
+        assert body_of(sent) == b"50"
+        assert MAX_BODY_SIZE_SCOPE_KEY not in scope
+    
+        # The declared Content-Length is checked against the final (inner) limit.
+        inner_calls.clear()
+        raised = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=100), max_body_size=10)
+        sent, _ = await run(raised, [b"x" * 50], headers=[(b"content-length", b"50")])
+>       assert status_of(sent) == 200
+E       AssertionError: assert 413 == 200
+E        +  where 413 = status_of([{'type': 'http.response.start', 'status': 413, 'headers': [(b'content-length', b'17'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Content Too Large'}])
+
+tests\middleware\test_body_limit.py:258: AssertionError
+_____________________ test_content_length_failfast[trio] ______________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_content_length_failfast(test_client_factory: TestClientFactory) -> None:
+        never_reads.called = False  # type: ignore[attr-defined]
+        client = test_client_factory(RequestBodyLimitMiddleware(never_reads, max_body_size=10))
+    
+        response = client.post("/", content=b"x" * 20)
+        assert response.status_code == 413
+        assert response.text == "Content Too Large"
+        # The endpoint runs, but its own response is replaced by the 413.
+>       assert never_reads.called is True  # type: ignore[attr-defined]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert False is True
+E        +  where False = never_reads.called
+
+tests\middleware\test_body_limit.py:87: AssertionError
+__________ test_nested_limits_raise_and_lower_the_outer_limit[trio] ___________
+
+    @pytest.mark.anyio
+    async def test_nested_limits_raise_and_lower_the_outer_limit() -> None:
+        inner_calls: list[object] = []
+    
+        async def spy_read_all(scope: Scope, receive: Receive, send: Send) -> None:
+            inner_calls.append(scope[MAX_BODY_SIZE_SCOPE_KEY])
+            await read_all(scope, receive, send)
+    
+        # Inner limit raises the outer one.
+        raised = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=100), max_body_size=5)
+        sent, scope = await run(raised, [b"x" * 50])
+        assert status_of(sent) == 200
+        assert body_of(sent) == b"50"
+        assert MAX_BODY_SIZE_SCOPE_KEY not in scope
+    
+        # The declared Content-Length is checked against the final (inner) limit.
+        inner_calls.clear()
+        raised = RequestBodyLimitMiddleware(RequestBodyLimitMiddleware(spy_read_all, max_body_size=100), max_body_size=10)
+        sent, _ = await run(raised, [b"x" * 50], headers=[(b"content-length", b"50")])
+>       assert status_of(sent) == 200
+E       AssertionError: assert 413 == 200
+E        +  where 413 = status_of([{'type': 'http.response.start', 'status': 413, 'headers': [(b'content-length', b'17'), (b'content-type', b'text/plain; charset=utf-8')]}, {'type': 'http.response.body', 'body': b'Content Too Large'}])
+
+tests\middleware\test_body_limit.py:258: AssertionError
+4 failed, 16 passed in 0.31s

@@ -1,0 +1,26 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC12",
+      "note": "test_nested_limits_raise_and_lower_the_outer_limit: outer 10 and inner 100 with a 50-byte body and Content-Length: 50 returns 200, and the endpoint saw limit 100."
+    },
+    {
+      "criterion": "ACC13",
+      "note": "test_content_length_failfast, test_content_length_failfast_sends_exactly_one_response and test_content_length_failfast_when_app_returns_without_response cover this. The endpoint never reads the body and the client gets plain-text 413 \"Content Too Large\". Exactly one start and one body message are sent. The case where the app returns without a response is covered too. I changed test_content_length_failfast, which used to assert the endpoint was not called. It now asserts the endpoint is called and its response is replaced."
+    },
+    {
+      "criterion": "ACC14",
+      "note": "test_understated_content_length_and_exact_limit (understated header, exact limit, unparsable header) and test_limit_enforced_without_content_length (no header)."
+    },
+    {
+      "criterion": "ACC15",
+      "note": "test_no_double_response: after the response has started, HTTPException(413) is re-raised and only http.response.start was sent. The existing test, unchanged."
+    },
+    {
+      "criterion": "ACC16",
+      "note": "test_scope_key: the key holds the limit while the app runs, and its previous value or absence is restored afterwards. The existing test, unchanged."
+    }
+  ],
+  "replan_request": null,
+  "summary": "The outermost RequestBodyLimitMiddleware now defers the Content-Length fail-fast until the limit is final. Nested instances update the tracked limit and keep their immediate check. I couldn't run tests here, so none of this has been run."
+}

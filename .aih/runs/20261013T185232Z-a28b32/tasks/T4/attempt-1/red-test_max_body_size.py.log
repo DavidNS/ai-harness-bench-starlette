@@ -1,0 +1,1257 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                       [100%]
+================================== FAILURES ===================================
+________________ test_default_is_unlimited[asyncio-starlette] _________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+__________________ test_default_is_unlimited[asyncio-router] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+__________________ test_default_is_unlimited[asyncio-mount] ___________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+__________________ test_default_is_unlimited[asyncio-route] ___________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+______________ test_limit_with_content_length[asyncio-starlette] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+_______________ test_limit_with_content_length[asyncio-router] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+________________ test_limit_with_content_length[asyncio-mount] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+________________ test_limit_with_content_length[asyncio-route] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+____________ test_limit_without_content_length[asyncio-starlette] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+______________ test_limit_without_content_length[asyncio-router] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+______________ test_limit_without_content_length[asyncio-mount] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+______________ test_limit_without_content_length[asyncio-route] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+_ test_content_length_fail_fast_when_endpoint_ignores_body[asyncio-starlette] _
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+__ test_content_length_fail_fast_when_endpoint_ignores_body[asyncio-router] ___
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+___ test_content_length_fail_fast_when_endpoint_ignores_body[asyncio-mount] ___
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+___ test_content_length_fail_fast_when_endpoint_ignores_body[asyncio-route] ___
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+____________ test_app_middleware_reading_body_is_limited[asyncio] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_app_middleware_reading_body_is_limited(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(
+            routes=[Route("/", ignore_body, methods=["POST"])],
+            middleware=[Middleware(BodyReadingMiddleware)],
+            max_body_size=10,
+        )
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:91: TypeError
+_____________ test_inner_limit_raises_outer_limit[asyncio-router] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+>               Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:104: TypeError
+_____________ test_inner_limit_raises_outer_limit[asyncio-mount] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+>           routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:107: TypeError
+_____________ test_inner_limit_raises_outer_limit[asyncio-route] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+        else:
+>           routes = [Route("/", read_body, methods=["POST"], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:109: TypeError
+_____________ test_inner_limit_lowers_outer_limit[asyncio-router] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+>               Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:104: TypeError
+_____________ test_inner_limit_lowers_outer_limit[asyncio-mount] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+>           routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:107: TypeError
+_____________ test_inner_limit_lowers_outer_limit[asyncio-route] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+        else:
+>           routes = [Route("/", read_body, methods=["POST"], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:109: TypeError
+________________ test_sibling_route_keeps_outer_limit[asyncio] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_sibling_route_keeps_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/big", read_body, methods=["POST"], max_body_size=100),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/small", read_body, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:133: TypeError
+___________ test_multipart_temp_files_closed_on_body_limit[asyncio] ___________
+
+    @pytest.mark.anyio
+    async def test_multipart_temp_files_closed_on_body_limit() -> None:
+        created: list[SpooledTemporaryFile[bytes]] = []
+    
+        def tracking_factory(*args: Any, **kwargs: Any) -> SpooledTemporaryFile[bytes]:
+            file: SpooledTemporaryFile[bytes] = SpooledTemporaryFile(*args, **kwargs)
+            created.append(file)
+            return file
+    
+        async def form_endpoint(request: Request) -> PlainTextResponse:
+            async with request.form():
+                return PlainTextResponse("ok")  # pragma: no cover
+    
+>       app = Starlette(routes=[Route("/", form_endpoint, methods=["POST"])], max_body_size=150)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:156: TypeError
+__________________ test_default_is_unlimited[trio-starlette] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+___________________ test_default_is_unlimited[trio-router] ____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+____________________ test_default_is_unlimited[trio-mount] ____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+____________________ test_default_is_unlimited[trio-route] ____________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_default_is_unlimited(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, None))
+                                     ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = None
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+_______________ test_limit_with_content_length[trio-starlette] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+_________________ test_limit_with_content_length[trio-router] _________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+_________________ test_limit_with_content_length[trio-mount] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+_________________ test_limit_with_content_length[trio-route] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_with_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+______________ test_limit_without_content_length[trio-starlette] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+_______________ test_limit_without_content_length[trio-router] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+________________ test_limit_without_content_length[trio-mount] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+________________ test_limit_without_content_length[trio-route] ________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_limit_without_content_length(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10))
+                                     ^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function read_body at 0x000001417244F100>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+__ test_content_length_fail_fast_when_endpoint_ignores_body[trio-starlette] ___
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'starlette'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'starlette', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+>           return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:36: TypeError
+____ test_content_length_fail_fast_when_endpoint_ignores_body[trio-router] ____
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+>           router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:38: TypeError
+____ test_content_length_fail_fast_when_endpoint_ignores_body[trio-mount] _____
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+>           return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:41: TypeError
+____ test_content_length_fail_fast_when_endpoint_ignores_body[trio-route] _____
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_content_length_fail_fast_when_endpoint_ignores_body(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_app(kind, 10, ignore_body))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', limit = 10
+endpoint = <function ignore_body at 0x0000014174DC3CE0>
+
+    def make_app(kind: str, limit: int | None, endpoint: Callable[..., Any] = read_body) -> Starlette:
+        if kind == "starlette":
+            return Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+        if kind == "router":
+            router = Router([Route("/", endpoint, methods=["POST"])], max_body_size=limit)
+            return Starlette(routes=[Mount("/", app=router)])
+        if kind == "mount":
+            return Starlette(routes=[Mount("/", routes=[Route("/", endpoint, methods=["POST"])], max_body_size=limit)])
+        assert kind == "route"
+>       return Starlette(routes=[Route("/", endpoint, methods=["POST"], max_body_size=limit)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:43: TypeError
+______________ test_app_middleware_reading_body_is_limited[trio] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_app_middleware_reading_body_is_limited(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(
+            routes=[Route("/", ignore_body, methods=["POST"])],
+            middleware=[Middleware(BodyReadingMiddleware)],
+            max_body_size=10,
+        )
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:91: TypeError
+______________ test_inner_limit_raises_outer_limit[trio-router] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+>               Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:104: TypeError
+_______________ test_inner_limit_raises_outer_limit[trio-mount] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+>           routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:107: TypeError
+_______________ test_inner_limit_raises_outer_limit[trio-route] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_raises_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=10, inner=100))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', outer = 10, inner = 100
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+        else:
+>           routes = [Route("/", read_body, methods=["POST"], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:109: TypeError
+______________ test_inner_limit_lowers_outer_limit[trio-router] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'router'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'router', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+>               Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:104: TypeError
+_______________ test_inner_limit_lowers_outer_limit[trio-mount] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'mount'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'mount', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+>           routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:107: TypeError
+_______________ test_inner_limit_lowers_outer_limit[trio-route] _______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+kind = 'route'
+
+    @pytest.mark.parametrize("kind", ["router", "mount", "route"])
+    def test_inner_limit_lowers_outer_limit(test_client_factory: TestClientFactory, kind: str) -> None:
+>       client = test_client_factory(make_nested_app(kind, outer=100, inner=10))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_max_body_size.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kind = 'route', outer = 100, inner = 10
+
+    def make_nested_app(kind: str, outer: int, inner: int) -> Starlette:
+        if kind == "router":
+            routes: list[BaseRoute] = [
+                Mount("/", app=Router([Route("/", read_body, methods=["POST"])], max_body_size=inner))
+            ]
+        elif kind == "mount":
+            routes = [Mount("/", routes=[Route("/", read_body, methods=["POST"])], max_body_size=inner)]
+        else:
+>           routes = [Route("/", read_body, methods=["POST"], max_body_size=inner)]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:109: TypeError
+_________________ test_sibling_route_keeps_outer_limit[trio] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_sibling_route_keeps_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/big", read_body, methods=["POST"], max_body_size=100),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/small", read_body, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:133: TypeError
+____________ test_multipart_temp_files_closed_on_body_limit[trio] _____________
+
+    @pytest.mark.anyio
+    async def test_multipart_temp_files_closed_on_body_limit() -> None:
+        created: list[SpooledTemporaryFile[bytes]] = []
+    
+        def tracking_factory(*args: Any, **kwargs: Any) -> SpooledTemporaryFile[bytes]:
+            file: SpooledTemporaryFile[bytes] = SpooledTemporaryFile(*args, **kwargs)
+            created.append(file)
+            return file
+    
+        async def form_endpoint(request: Request) -> PlainTextResponse:
+            async with request.form():
+                return PlainTextResponse("ok")  # pragma: no cover
+    
+>       app = Starlette(routes=[Route("/", form_endpoint, methods=["POST"])], max_body_size=150)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_max_body_size.py:156: TypeError
+50 failed in 0.60s

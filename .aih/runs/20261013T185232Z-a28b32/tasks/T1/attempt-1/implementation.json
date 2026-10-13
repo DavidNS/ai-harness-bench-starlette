@@ -1,0 +1,38 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "test_limit_enforced_without_content_length (chunked body: 413 'Content Too Large' text/plain; smaller body 200)"
+    },
+    {
+      "criterion": "ACC2",
+      "note": "test_content_length_failfast (413 with endpoint never invoked; under limit invokes app)"
+    },
+    {
+      "criterion": "ACC3",
+      "note": "test_understated_content_length_and_exact_limit (understated header -> 413; exact limit -> 200; invalid header ignored but body counted)"
+    },
+    {
+      "criterion": "ACC4",
+      "note": "test_multipart_and_streaming_counted (multipart overhead pushes over limit; chunked cumulative limit)"
+    },
+    {
+      "criterion": "ACC5",
+      "note": "test_no_double_response (only one response.start, HTTPException(413) raised; before start the middleware sends 413)"
+    },
+    {
+      "criterion": "ACC6",
+      "note": "test_scope_key plus test_nested_limits_raise_and_lower_the_outer_limit (value set while running, previous/absence restored)"
+    },
+    {
+      "criterion": "ACC7",
+      "note": "test_multipart_temp_files_closed_on_interrupt in tests/test_formparsers.py (HTTPException 413 mid-stream closes both created files)"
+    },
+    {
+      "criterion": "ACC11",
+      "note": "starlette/__init__.py untouched; existing suite unverified since commands cannot be run here. Extra branch coverage in test_other_http_exceptions_and_non_http_scopes_pass_through."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Added starlette/middleware/body_limit.py (RequestBodyLimitMiddleware, MAX_BODY_SIZE_SCOPE_KEY) with a counting receive wrapper that reads the limit from scope dynamically, Content-Length fail-fast, and no-double-response handling. MultiPartParser.parse now closes temp files on any BaseException. Added tests in tests/middleware/test_body_limit.py and tests/test_formparsers.py. Nothing was run (no command execution available); tests are unverified."
+}

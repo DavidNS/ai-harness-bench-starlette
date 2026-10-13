@@ -1,0 +1,57 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC17",
+      "line": 64,
+      "note": "Parametrized over all four classes. test_default_is_unlimited covers the None default, and the exact-limit and over-limit assertions cover the 413.",
+      "status": "covered",
+      "test": "tests/test_max_body_size.py::test_limit_with_content_length"
+    },
+    {
+      "criterion": "ACC18",
+      "line": 104,
+      "note": "The middleware reads the chunked body itself. 10 bytes pass and 11 bytes give 413.",
+      "status": "covered",
+      "test": "tests/test_max_body_size.py::test_app_middleware_reading_body_is_limited"
+    },
+    {
+      "criterion": "ACC19",
+      "line": 123,
+      "note": "Parametrized over router, mount and route, with and without Content-Length. test_inner_limit_lowers_outer_limit covers lowering, and test_sibling_route_keeps_outer_limit checks the outer limit stays in force for other routes.",
+      "status": "covered",
+      "test": "tests/test_max_body_size.py::test_inner_limit_raises_outer_limit"
+    },
+    {
+      "criterion": "ACC20",
+      "line": 195,
+      "note": "A tracked SpooledTemporaryFile is created before the limit is crossed. The test asserts one file was created and that it is closed after the 413.",
+      "status": "covered",
+      "test": "tests/test_max_body_size.py::test_multipart_temp_files_closed_on_body_limit"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tests/test_max_body_size.py",
+      "line": 0,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test sends a lifespan or websocket scope through a limited Starlette, Router or Mount. The middleware passes non-http scopes through, but nothing here checks that the new wiring does not break them."
+    },
+    {
+      "file": "tests/test_max_body_size.py",
+      "line": 37,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "Router and Mount are only tested nested inside a Starlette app. A Router used directly as the ASGI app with max_body_size is not tested."
+    },
+    {
+      "file": "starlette/applications.py",
+      "line": 55,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "The new `self.max_body_size` public attribute is not required and is only read once, in build_middleware_stack. The `body_limit_middleware` temporary list could be folded into the stack expression."
+    }
+  ],
+  "summary": "The wiring matches the plan, and each criterion has a test whose assertion would fail if the behaviour broke. I found no weakened tests: no existing test file was modified. I only read the code and did not run the tests. The remaining findings are advisory.",
+  "verdict": "approve"
+}

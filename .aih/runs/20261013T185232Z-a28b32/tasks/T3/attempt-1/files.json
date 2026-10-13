@@ -1,0 +1,12 @@
+[
+  {
+    "action": "modify",
+    "path": "starlette/middleware/body_limit.py",
+    "role": "production"
+  },
+  {
+    "action": "modify",
+    "path": "tests/middleware/test_body_limit.py",
+    "role": "test"
+  }
+]

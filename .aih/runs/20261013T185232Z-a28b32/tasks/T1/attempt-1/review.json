@@ -1,0 +1,77 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC1",
+      "line": 79,
+      "note": "Chunked body over the limit gets a plain-text 413, and a body under it gets 200.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_limit_enforced_without_content_length"
+    },
+    {
+      "criterion": "ACC2",
+      "line": 92,
+      "note": "Asserts 413 and that the endpoint was never called.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_content_length_failfast"
+    },
+    {
+      "criterion": "ACC3",
+      "line": 105,
+      "note": "Covers understated Content-Length, a body exactly at the limit, and an unparsable header.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+    },
+    {
+      "criterion": "ACC4",
+      "line": 121,
+      "note": "A file exactly at the limit returns 413 because of multipart overhead, and chunked bodies are counted cumulatively.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_multipart_and_streaming_counted"
+    },
+    {
+      "criterion": "ACC5",
+      "line": 150,
+      "note": "Only one response start is sent and HTTPException(413) is raised from receive; before the response starts, a 413 is produced.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+    },
+    {
+      "criterion": "ACC6",
+      "line": 191,
+      "note": "Checks the constant, the value while the app runs, and restoration or removal afterwards.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_scope_key"
+    },
+    {
+      "criterion": "ACC7",
+      "line": 645,
+      "note": "Two temp files are created, then HTTPException is raised mid-stream, and both files are closed.",
+      "status": "covered",
+      "test": "tests/test_formparsers.py::test_multipart_temp_files_closed_on_interrupt"
+    }
+  ],
+  "findings": [
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 47,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "`str.isdigit()` is true for characters like '\u00b2' that `int()` rejects, so a crafted Content-Length header raises ValueError (a 500); no test covers it, and `isascii() and isdigit()` would avoid it."
+    },
+    {
+      "file": "tests/middleware/test_body_limit.py",
+      "line": 0,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test checks that the scope key and state key are restored or removed when the app raises (the `finally` path)."
+    },
+    {
+      "file": "starlette/middleware/body_limit.py",
+      "line": 88,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "`_reject` is a one-line wrapper used twice and could be inlined."
+    }
+  ],
+  "verdict": "approve"
+}

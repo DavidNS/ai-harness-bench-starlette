@@ -1,0 +1,225 @@
+{
+  "attempts_total": 4,
+  "base_ref": "main",
+  "base_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+  "baseline_green": false,
+  "created_at": "2026-10-13T18:52:32+00:00",
+  "head": "01729a6276b60b9118102287e07a9eefa4cb60d2",
+  "plan_version": 2,
+  "repo": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\targets\\20261013T185230Z-starlette-max-body-size-gated-1",
+  "run_id": "20261013T185232Z-a28b32",
+  "status": "implemented",
+  "tasks": {
+    "T1": {
+      "advisories": [
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 47,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "`str.isdigit()` is true for characters like '\u00b2' that `int()` rejects, so a crafted Content-Length header raises ValueError (a 500); no test covers it, and `isascii() and isdigit()` would avoid it."
+        },
+        {
+          "file": "tests/middleware/test_body_limit.py",
+          "line": 0,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test checks that the scope key and state key are restored or removed when the app raises (the `finally` path)."
+        },
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 88,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "`_reject` is a one-line wrapper used twice and could be inlined."
+        }
+      ],
+      "attempts": 1,
+      "commit": "e3b6bba4a4b6c4589fdb9cd6f8d6a29677ed95ea",
+      "coverage": [
+        {
+          "criterion": "ACC1",
+          "line": 79,
+          "note": "Chunked body over the limit gets a plain-text 413, and a body under it gets 200.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_limit_enforced_without_content_length"
+        },
+        {
+          "criterion": "ACC2",
+          "line": 92,
+          "note": "Asserts 413 and that the endpoint was never called.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_content_length_failfast"
+        },
+        {
+          "criterion": "ACC3",
+          "line": 105,
+          "note": "Covers understated Content-Length, a body exactly at the limit, and an unparsable header.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+        },
+        {
+          "criterion": "ACC4",
+          "line": 121,
+          "note": "A file exactly at the limit returns 413 because of multipart overhead, and chunked bodies are counted cumulatively.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_multipart_and_streaming_counted"
+        },
+        {
+          "criterion": "ACC5",
+          "line": 150,
+          "note": "Only one response start is sent and HTTPException(413) is raised from receive; before the response starts, a 413 is produced.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+        },
+        {
+          "criterion": "ACC6",
+          "line": 191,
+          "note": "Checks the constant, the value while the app runs, and restoration or removal afterwards.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_scope_key"
+        },
+        {
+          "criterion": "ACC7",
+          "line": 645,
+          "note": "Two temp files are created, then HTTPException is raised mid-stream, and both files are closed.",
+          "status": "covered",
+          "test": "tests/test_formparsers.py::test_multipart_temp_files_closed_on_interrupt"
+        }
+      ],
+      "status": "committed"
+    },
+    "T3": {
+      "advisories": [
+        {
+          "file": "tests/middleware/test_body_limit.py",
+          "line": 240,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test sends a Content-Length above an inner lowered limit but below the outer one; the nested immediate-check branch (body_limit.py:53) is untested with a declared length."
+        },
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 82,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "If the app raises a non-HTTPException error with an oversized Content-Length and no response, the 413 is skipped and the error propagates; no test covers this."
+        },
+        {
+          "file": "tests/middleware/test_body_limit.py",
+          "line": 86,
+          "pass": 3,
+          "severity": "advisory",
+          "text": "The assertion `never_reads.called is False` became `is True`; this follows from the deferred design, and the new exactly-one-response test compensates."
+        },
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 82,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "state.limit is set on entry by each nested instance but never restored on exit, so after an inner app returns the outer check uses the inner value; harmless today but fragile."
+        }
+      ],
+      "attempts": 1,
+      "commit": "42739b5c37867e29c2c1e4a21f5677a302c98d08",
+      "coverage": [
+        {
+          "criterion": "ACC12",
+          "line": 256,
+          "note": "Outer 10, inner 100, Content-Length 50 returns 200 and the inner spy sees limit 100.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_nested_limits_raise_and_lower_the_outer_limit"
+        },
+        {
+          "criterion": "ACC13",
+          "line": 104,
+          "note": "Asserts exactly start and body messages, status 413 and the plain text body; the app-returns-silently case is covered by a separate test.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_content_length_failfast_sends_exactly_one_response"
+        },
+        {
+          "criterion": "ACC14",
+          "line": 124,
+          "note": "Understated header and exact-limit body are exercised; the no-Content-Length case is in test_limit_enforced_without_content_length.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_understated_content_length_and_exact_limit"
+        },
+        {
+          "criterion": "ACC15",
+          "line": 167,
+          "note": "Existing test for the limit crossed after the response has started.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_no_double_response"
+        },
+        {
+          "criterion": "ACC16",
+          "line": 220,
+          "note": "Existing test checks the scope key during the run and its restoration afterwards.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_scope_key"
+        }
+      ],
+      "status": "committed"
+    },
+    "T4": {
+      "advisories": [
+        {
+          "file": "tests/test_max_body_size.py",
+          "line": 0,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test sends a lifespan or websocket scope through a limited Starlette, Router or Mount. The middleware passes non-http scopes through, but nothing here checks that the new wiring does not break them."
+        },
+        {
+          "file": "tests/test_max_body_size.py",
+          "line": 37,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "Router and Mount are only tested nested inside a Starlette app. A Router used directly as the ASGI app with max_body_size is not tested."
+        },
+        {
+          "file": "starlette/applications.py",
+          "line": 55,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "The new `self.max_body_size` public attribute is not required and is only read once, in build_middleware_stack. The `body_limit_middleware` temporary list could be folded into the stack expression."
+        }
+      ],
+      "attempts": 1,
+      "commit": "01729a6276b60b9118102287e07a9eefa4cb60d2",
+      "coverage": [
+        {
+          "criterion": "ACC17",
+          "line": 64,
+          "note": "Parametrized over all four classes. test_default_is_unlimited covers the None default, and the exact-limit and over-limit assertions cover the 413.",
+          "status": "covered",
+          "test": "tests/test_max_body_size.py::test_limit_with_content_length"
+        },
+        {
+          "criterion": "ACC18",
+          "line": 104,
+          "note": "The middleware reads the chunked body itself. 10 bytes pass and 11 bytes give 413.",
+          "status": "covered",
+          "test": "tests/test_max_body_size.py::test_app_middleware_reading_body_is_limited"
+        },
+        {
+          "criterion": "ACC19",
+          "line": 123,
+          "note": "Parametrized over router, mount and route, with and without Content-Length. test_inner_limit_lowers_outer_limit covers lowering, and test_sibling_route_keeps_outer_limit checks the outer limit stays in force for other routes.",
+          "status": "covered",
+          "test": "tests/test_max_body_size.py::test_inner_limit_raises_outer_limit"
+        },
+        {
+          "criterion": "ACC20",
+          "line": 195,
+          "note": "A tracked SpooledTemporaryFile is created before the limit is crossed. The test asserts one file was created and that it is closed after the 413.",
+          "status": "covered",
+          "test": "tests/test_max_body_size.py::test_multipart_temp_files_closed_on_body_limit"
+        }
+      ],
+      "status": "committed"
+    }
+  },
+  "updated_at": "2026-10-13T19:01:50+00:00",
+  "worktree": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\results\\arms\\detail\\20261013T185230Z-starlette-max-body-size-gated-1\\aih-data\\worktrees\\20261013T185232Z-a28b32"
+}

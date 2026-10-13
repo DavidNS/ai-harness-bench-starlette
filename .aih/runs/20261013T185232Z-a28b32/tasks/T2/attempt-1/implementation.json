@@ -1,0 +1,24 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC8",
+      "note": "The production wiring is done, but test_max_body_size_none_unlimited is not written."
+    },
+    {
+      "criterion": "ACC9",
+      "note": "The production wiring is done, but test_app_level_limit_applies_to_middleware is not written."
+    },
+    {
+      "criterion": "ACC10",
+      "note": "This can't be met as written. Raising an outer limit from an inner route, mount or router fails because of the `Content-Length` check in `body_limit.py`, so test_inner_limit_overrides_outer is not written."
+    }
+  ],
+  "replan_request": {
+    "files": [
+      "starlette/middleware/body_limit.py",
+      "tests/middleware/test_body_limit.py"
+    ],
+    "reason": "RequestBodyLimitMiddleware (starlette/middleware/body_limit.py) rejects on Content-Length as soon as the outermost limited app sees the request, in `__call__` where `too_large` is computed and `_reject` is called, before routing. With Starlette(max_body_size=10) and Route(max_body_size=100), a 50-byte POST that carries a Content-Length header is therefore answered with 413 at the app level. The inner route never gets to raise the limit, which ACC10 requires. ACC9 also requires the Content-Length fail-fast to hold when the endpoint never reads the body. The two requirements can be met together if the outermost middleware defers its fail-fast until the effective limit is final. Concretely: when the declared length exceeds the outer limit, run the app and let inner limited apps apply their own Content-Length check. If the app returns without having started a response and the final scope limit is still lower than the declared length, send the 413 instead. The `received > limit` check in `limited_receive` already reads the limit dynamically. T2 already contains the wiring in routing.py and applications.py, and only tests/test_max_body_size.py remains to be written once body_limit.py is fixed."
+  },
+  "summary": "I added the `max_body_size` keyword to `Route`, `Mount`, `Router` and `Starlette`. I did not write `tests/test_max_body_size.py`, because `body_limit.py` blocks the inner-override behaviour. Nothing has been run."
+}

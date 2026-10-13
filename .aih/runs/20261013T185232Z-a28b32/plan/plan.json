@@ -1,0 +1,372 @@
+{
+  "criteria": [
+    {
+      "id": "ACC1",
+      "intent": "INTENT1",
+      "key": "C1",
+      "kind": "behavior",
+      "text": "test_limit_enforced_without_content_length: a body streamed without Content-Length that exceeds max_body_size gets a plain-text 413 'Content Too Large'; a smaller body gets 200."
+    },
+    {
+      "id": "ACC2",
+      "intent": "INTENT2",
+      "key": "C2",
+      "kind": "behavior",
+      "text": "test_content_length_failfast: a declared Content-Length over the limit gets 413 before the body is read, even if the endpoint never reads the body."
+    },
+    {
+      "id": "ACC3",
+      "intent": "INTENT2",
+      "key": "C3",
+      "kind": "behavior",
+      "text": "test_understated_content_length_and_exact_limit: an understated Content-Length does not bypass the limit (413), and a body exactly at the limit is allowed."
+    },
+    {
+      "id": "ACC4",
+      "intent": "INTENT1",
+      "key": "C4",
+      "kind": "behavior",
+      "text": "test_multipart_and_streaming_counted: multipart uploads are counted including encoding overhead, and streaming (chunked) bodies are limited by cumulative bytes."
+    },
+    {
+      "id": "ACC5",
+      "intent": "INTENT3",
+      "key": "C5",
+      "kind": "behavior",
+      "text": "test_no_double_response: when the limit is crossed after the app has started its response, no second response start is sent and receive raises HTTPException(413); before the response starts the 413 is produced."
+    },
+    {
+      "id": "ACC6",
+      "intent": "INTENT4",
+      "key": "C6",
+      "kind": "behavior",
+      "text": "test_scope_key: MAX_BODY_SIZE_SCOPE_KEY == 'starlette.max_body_size'; the scope holds the effective limit while the app runs and the previous value (or absence) is restored afterwards."
+    },
+    {
+      "id": "ACC7",
+      "intent": "INTENT8",
+      "key": "C7",
+      "kind": "behavior",
+      "text": "test_multipart_temp_files_closed_on_interrupt: when the multipart stream raises any exception (e.g. HTTPException 413) mid-stream, all SpooledTemporaryFiles already created are closed."
+    },
+    {
+      "id": "ACC11",
+      "intent": "INTENT9",
+      "key": "C11",
+      "kind": "other",
+      "text": "The middleware is not exported from starlette/__init__.py and the existing test suite remains green."
+    },
+    {
+      "id": "ACC12",
+      "intent": "INTENT2",
+      "key": "C_DEFER_RAISE",
+      "kind": "behavior",
+      "text": "With an outer limit of 10 and an inner limit of 100, a 50-byte POST that carries Content-Length: 50 reaches the endpoint and gets 200."
+    },
+    {
+      "id": "ACC13",
+      "intent": "INTENT2",
+      "key": "C_NEVER_READS",
+      "kind": "behavior",
+      "text": "If the declared Content-Length exceeds the final effective limit, the client gets a plain-text 413 Content Too Large, even when the endpoint never reads the body and even if the app starts a response or returns without sending one. The app's own response is not forwarded, so there is exactly one response."
+    },
+    {
+      "id": "ACC14",
+      "intent": "INTENT2",
+      "key": "C_NO_BYPASS",
+      "kind": "behavior",
+      "text": "An absent or understated Content-Length never bypasses the limit. A body exactly at the limit is allowed."
+    },
+    {
+      "id": "ACC15",
+      "intent": "INTENT3",
+      "key": "C_NO_DOUBLE",
+      "kind": "behavior",
+      "text": "When the limit is crossed after the response has started, no second response is sent and the HTTPException(413) is re-raised."
+    },
+    {
+      "id": "ACC16",
+      "intent": "INTENT4",
+      "key": "C_SCOPE",
+      "kind": "behavior",
+      "text": "MAX_BODY_SIZE_SCOPE_KEY holds the effective limit while the app runs, and its previous value or absence is restored afterwards."
+    },
+    {
+      "id": "ACC17",
+      "intent": "INTENT5",
+      "key": "C_PARAM",
+      "kind": "behavior",
+      "text": "Starlette, Router, Mount and Route accept max_body_size. None, the default, leaves the body unlimited, and an oversized body is rejected with 413 when a limit is set."
+    },
+    {
+      "id": "ACC18",
+      "intent": "INTENT6",
+      "key": "C_APP_LEVEL",
+      "kind": "behavior",
+      "text": "Application middleware that reads the body is subject to the Starlette(max_body_size=...) limit, and an oversized body gets 413."
+    },
+    {
+      "id": "ACC19",
+      "intent": "INTENT7",
+      "key": "C_INNER",
+      "kind": "behavior",
+      "text": "A limit on an inner Route, Mount or Router overrides the outer limit. It can raise the limit so a larger body is accepted, or lower it so a body the outer limit allows is rejected."
+    },
+    {
+      "id": "ACC20",
+      "intent": "INTENT8",
+      "key": "C_MULTIPART",
+      "kind": "behavior",
+      "text": "Temp files created by multipart parsing are closed when parsing is interrupted, including by a body-limit error."
+    },
+    {
+      "id": "ACC21",
+      "intent": "INTENT9",
+      "key": "C_TESTS",
+      "kind": "other",
+      "text": "Tests exist in tests/middleware/test_body_limit.py and tests/test_max_body_size.py covering the listed scenarios, and the existing suite stays green."
+    }
+  ],
+  "frozen_at": "2026-10-13T18:58:13+00:00",
+  "intents": [
+    {
+      "evidence": [
+        {
+          "end": 20,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "class RequestBodyLimitMiddleware:",
+          "start": 20
+        },
+        {
+          "end": 90,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "PlainTextResponse(\"Content Too Large\", status_code=413)",
+          "start": 90
+        }
+      ],
+      "intent": "INTENT1",
+      "rationale": "T1 committed the pure ASGI middleware with a counting receive wrapper and a plain-text 413 response.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [
+        {
+          "end": 59,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "if too_large:",
+          "start": 57
+        }
+      ],
+      "intent": "INTENT2",
+      "rationale": "The fail-fast currently rejects in __call__ before routing, so an inner route cannot raise the limit. The decision must be deferred until the effective limit is final, while still rejecting endpoints that never read the body.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 79,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "state.response_started",
+          "start": 78
+        }
+      ],
+      "intent": "INTENT3",
+      "rationale": "receive raises HTTPException(413), and the middleware re-raises it instead of sending a second response once the response has started.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [
+        {
+          "end": 8,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "MAX_BODY_SIZE_SCOPE_KEY = \"starlette.max_body_size\"",
+          "start": 8
+        },
+        {
+          "end": 85,
+          "path": "starlette/middleware/body_limit.py",
+          "quote": "del scope[MAX_BODY_SIZE_SCOPE_KEY]",
+          "start": 82
+        }
+      ],
+      "intent": "INTENT4",
+      "rationale": "The constant is exported, set in the scope while the app runs, and restored afterwards.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [
+        {
+          "end": 205,
+          "path": "starlette/routing.py",
+          "quote": "middleware: Sequence[Middleware] | None = None,",
+          "start": 205
+        }
+      ],
+      "intent": "INTENT5",
+      "rationale": "No max_body_size keyword exists on Starlette, Router, Mount or Route.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 72,
+          "path": "starlette/applications.py",
+          "quote": "Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)",
+          "start": 68
+        }
+      ],
+      "intent": "INTENT6",
+      "rationale": "Starlette.build_middleware_stack must insert the limit middleware after ServerErrorMiddleware and before user middleware.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 604,
+          "path": "starlette/routing.py",
+          "quote": "self.middleware_stack = self.app",
+          "start": 601
+        }
+      ],
+      "intent": "INTENT7",
+      "rationale": "Route, Mount and Router must wrap their app in the middleware. The outer middleware must also not reject early on Content-Length (T2), and the nested middleware swaps the scope limit.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 294,
+          "path": "starlette/formparsers.py",
+          "quote": "except BaseException:",
+          "start": 291
+        }
+      ],
+      "intent": "INTENT8",
+      "rationale": "T1 made MultiPartParser.parse close temp files on any BaseException.",
+      "resolution": "already_satisfied"
+    },
+    {
+      "evidence": [
+        {
+          "end": 210,
+          "path": "tests/middleware/test_body_limit.py",
+          "quote": "async def test_nested_limits_raise_and_lower_the_outer_limit",
+          "start": 210
+        }
+      ],
+      "intent": "INTENT9",
+      "rationale": "The middleware tests exist (T1), but tests for the deferred fail-fast and tests/test_max_body_size.py for the four classes are still missing.",
+      "resolution": "change"
+    }
+  ],
+  "run_id": "20261013T185232Z-a28b32",
+  "summary": "T1 added the middleware and multipart cleanup, but the Starlette/Router/Mount/Route wiring is not in the worktree, despite the earlier note. T2 changes the middleware so the Content-Length fail-fast is deferred until the effective limit is final: inner limits can raise the limit, and endpoints that never read the body are still rejected. T3 adds the `max_body_size` wiring and tests/test_max_body_size.py.",
+  "tasks": [
+    {
+      "criteria": [
+        "ACC1",
+        "ACC2",
+        "ACC3",
+        "ACC4",
+        "ACC5",
+        "ACC6",
+        "ACC7",
+        "ACC11"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "create",
+          "path": "starlette/middleware/body_limit.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/formparsers.py",
+          "role": "production"
+        },
+        {
+          "action": "create",
+          "path": "tests/middleware/test_body_limit.py",
+          "role": "test"
+        },
+        {
+          "action": "modify",
+          "path": "tests/test_formparsers.py",
+          "role": "test"
+        }
+      ],
+      "id": "T1",
+      "key": "T1",
+      "summary": "Create RequestBodyLimitMiddleware with MAX_BODY_SIZE_SCOPE_KEY, a shared counting receive wrapper that reads the effective limit from scope dynamically (so nested limited apps just swap the scope value), Content-Length fail-fast, and no-double-response handling. Make MultiPartParser.parse close its temp files on any BaseException. Add tests.",
+      "tests": [
+        "tests/middleware/test_body_limit.py",
+        "tests/test_formparsers.py"
+      ]
+    },
+    {
+      "criteria": [
+        "ACC12",
+        "ACC13",
+        "ACC14",
+        "ACC15",
+        "ACC16"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/middleware/body_limit.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "tests/middleware/test_body_limit.py",
+          "role": "test"
+        }
+      ],
+      "id": "T3",
+      "key": "T2",
+      "summary": "Change RequestBodyLimitMiddleware so the outermost instance defers the Content-Length fail-fast until the effective limit is final. It tracks the innermost limit in the shared state. On the app's first http.response.start, or when the app returns without a response, it replaces the app's response with a 413 if the declared length exceeds that limit. Nested instances keep their own immediate check and update the tracked limit. Add tests.",
+      "tests": [
+        "tests/middleware/test_body_limit.py"
+      ]
+    },
+    {
+      "criteria": [
+        "ACC17",
+        "ACC18",
+        "ACC19",
+        "ACC20",
+        "ACC21"
+      ],
+      "depends_on": [
+        "T3"
+      ],
+      "files": [
+        {
+          "action": "modify",
+          "path": "starlette/applications.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/routing.py",
+          "role": "production"
+        },
+        {
+          "action": "create",
+          "path": "tests/test_max_body_size.py",
+          "role": "test"
+        }
+      ],
+      "id": "T4",
+      "key": "T3",
+      "summary": "Add the max_body_size keyword to Starlette, Router, Mount and Route. Starlette inserts the middleware after ServerErrorMiddleware and before user middleware. Route, Mount and Router wrap their app outermost, only when the value is not None. Add tests/test_max_body_size.py for all four classes, including inner limits that raise and lower the outer one, app middleware that reads the body, and multipart temp-file cleanup under a limit.",
+      "tests": [
+        "tests/test_max_body_size.py"
+      ]
+    }
+  ],
+  "version": 2
+}

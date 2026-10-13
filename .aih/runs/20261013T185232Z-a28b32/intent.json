@@ -1,0 +1,58 @@
+{
+  "constraints": [
+    "Export nothing new at the package root; import the middleware from starlette.middleware.body_limit",
+    "Do not change unrelated behaviour; max_body_size=None must preserve current unlimited behaviour",
+    "The existing test suite must stay green",
+    "Middleware must be pure ASGI"
+  ],
+  "intents": [
+    {
+      "id": "INTENT1",
+      "key": "body-limit-middleware",
+      "text": "Add starlette/middleware/body_limit.py with pure ASGI RequestBodyLimitMiddleware(app, max_body_size: int) that wraps receive, counts actual body bytes received (including multipart and encoding overhead), and answers with a plain-text 413 Content Too Large when the total exceeds the limit."
+    },
+    {
+      "id": "INTENT2",
+      "key": "content-length-failfast",
+      "text": "Use Content-Length only as a fail-fast check: a declared length over the limit is rejected before the body is read (even if the endpoint never reads it), while an absent or understated header never bypasses the byte-count limit, and exactly-at-limit bodies are allowed."
+    },
+    {
+      "id": "INTENT3",
+      "key": "no-double-response",
+      "text": "When the limit is crossed after the app has started its response, the middleware sends no second response and receive raises starlette.exceptions.HTTPException(413) so standard exception handling produces the 413 (or re-raises if the response has already started)."
+    },
+    {
+      "id": "INTENT4",
+      "key": "scope-key",
+      "text": "Export the public constant MAX_BODY_SIZE_SCOPE_KEY = \"starlette.max_body_size\" from the module; the effective limit is stored in the scope under it while a limited app runs and the previous value (or its absence) is restored afterwards."
+    },
+    {
+      "id": "INTENT5",
+      "key": "max-body-size-param",
+      "text": "Add a max_body_size: int | None = None keyword to Starlette, Router, Mount and Route, where None keeps unlimited behaviour."
+    },
+    {
+      "id": "INTENT6",
+      "key": "app-level-limit",
+      "text": "Apply the Starlette application-level limit through the middleware stack before routing, so application middleware that reads the body is subject to it."
+    },
+    {
+      "id": "INTENT7",
+      "key": "inner-override",
+      "text": "A limit on an inner Route, Mount or Router overrides the outer limit after routing, allowing it to be either larger or smaller than the outer one."
+    },
+    {
+      "id": "INTENT8",
+      "key": "multipart-cleanup",
+      "text": "In starlette/formparsers.py, close any temporary files created during multipart parsing when the parse is interrupted for any reason, including a body-limit error raised mid-stream."
+    },
+    {
+      "id": "INTENT9",
+      "key": "tests",
+      "text": "Add tests covering the middleware (with/without Content-Length, understated Content-Length, exactly-at-limit, multipart uploads, streaming bodies, no double response), max_body_size on Starlette/Router/Mount/Route including inner limits raising and lowering the outer one, and multipart temp-file cleanup, with the existing suite staying green."
+    }
+  ],
+  "request": "Add configurable limits for the total HTTP request body size to Starlette, as upstream did in\nencode/starlette PR #3431 (closes #2155).\n\nRequirements:\n\n1. New module `starlette/middleware/body_limit.py` with a pure ASGI middleware\n   `RequestBodyLimitMiddleware(app, max_body_size: int)`. It wraps `receive` so that the body bytes\n   actually received from the ASGI server are counted, including multipart file data and encoding\n   overhead. When the total exceeds `max_body_size`, the request is answered with a plain-text\n   `413 Content Too Large` response. `Content-Length` is used only as a fail-fast check: a request\n   whose declared length already exceeds the limit is rejected before its body is read, but an\n   absent or understated header never bypasses the limit. If the application has already started\n   sending a response when the limit is crossed, the middleware must not send a second response;\n   the body limit must still stop the receive stream by raising\n   `starlette.exceptions.HTTPException(413)` from `receive`, so the standard exception handling turns\n   it into the 413 response (or re-raises it when the response has already started). The module\n   exports the public constant `MAX_BODY_SIZE_SCOPE_KEY = \"starlette.max_body_size\"`: the effective\n   limit is stored in the ASGI scope under that key while a limited app runs and the previous value\n   (or its absence) is restored afterwards.\n2. A `max_body_size: int | None = None` keyword on `Starlette`, `Router`, `Mount` and `Route`.\n   `None` keeps today's unlimited behaviour. The application-level limit is applied through the\n   middleware stack before routing. A limit on an inner route, mount or router overrides the outer\n   one after routing, so a route can accept a larger body than the rest of the application.\n   Application middleware that reads the body is subject to the application-level limit. The\n   fail-fast on `Content-Length` applies even when the endpoint never reads the body.\n3. Multipart parsing (`starlette/formparsers.py`) must close any temporary files it created when\n   a parse is interrupted for whatever reason, including a body-limit error raised mid-stream.\n4. Export nothing new at the package root; the middleware is imported from\n   `starlette.middleware.body_limit`.\n\nTests: add tests for the middleware (limit enforced with and without `Content-Length`, understated\n`Content-Length`, exactly-at-limit requests allowed, multipart uploads, streaming bodies, the\nno-double-response case) and for `max_body_size` on `Starlette`, `Router`, `Mount` and `Route`\nincluding an inner limit raising and lowering the outer one, plus the multipart temp-file cleanup.\nThe existing suite must stay green. Do not change unrelated behaviour.",
+  "rounds": [],
+  "summary": ""
+}
