@@ -613,6 +613,38 @@ async def test_urlencoded_limits_stop_parsing_within_a_single_chunk() -> None:
     assert sum(len(data) for _, data in parser.messages) <= 1024
 
 
+@pytest.mark.anyio
+async def test_multipart_temp_files_closed_on_interrupt() -> None:
+    from starlette.exceptions import HTTPException
+
+    created: list[SpooledTemporaryFile[bytes]] = []
+
+    def tracking_factory(*args: Any, **kwargs: Any) -> SpooledTemporaryFile[bytes]:
+        file: SpooledTemporaryFile[bytes] = SpooledTemporaryFile(*args, **kwargs)
+        created.append(file)
+        return file
+
+    async def interrupted_stream() -> AsyncGenerator[bytes, None]:
+        yield (
+            b"--b\r\n"
+            b'Content-Disposition: form-data; name="a"; filename="a.txt"\r\n\r\n'
+            b"hello\r\n"
+            b"--b\r\n"
+            b'Content-Disposition: form-data; name="c"; filename="c.txt"\r\n\r\n'
+            b"world"
+        )
+        raise HTTPException(status_code=413)
+
+    headers = Headers({"content-type": "multipart/form-data; boundary=b"})
+    parser = MultiPartParser(headers, interrupted_stream())
+    with mock.patch("starlette.formparsers.SpooledTemporaryFile", tracking_factory):
+        with pytest.raises(HTTPException) as exc_info:
+            await parser.parse()
+    assert exc_info.value.status_code == 413
+    assert len(created) == 2
+    assert all(file.closed for file in created)
+
+
 def test_user_safe_decode_helper() -> None:
     result = _user_safe_decode(b"\xc4\x99\xc5\xbc\xc4\x87", "utf-8")
     assert result == "ężć"
