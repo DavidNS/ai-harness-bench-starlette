@@ -1,0 +1,84 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC1",
+      "line": 54,
+      "note": "Posts 100 KB to the route, mount and router paths with no limit and expects 200; a standalone Router is covered separately.",
+      "status": "covered",
+      "test": "tests/test_body_limit.py::test_unlimited_by_default"
+    },
+    {
+      "criterion": "ACC2",
+      "line": 67,
+      "note": "A body at the limit returns 200 and one byte over returns 413 for each path. test_inner_limit covers the same at route, mount and router level.",
+      "status": "covered",
+      "test": "tests/test_body_limit.py::test_application_limit"
+    },
+    {
+      "criterion": "ACC3",
+      "line": 105,
+      "note": "Raising is asserted here and lowering in test_inner_limit_lowers_outer, each for route, mount and router. The middleware tests cover nested limits.",
+      "status": "covered",
+      "test": "tests/test_body_limit.py::test_inner_limit_raises_outer"
+    },
+    {
+      "criterion": "ACC4",
+      "line": 68,
+      "note": "Wraps a plain ASGI app; test_under_and_at_limit_passes covers bodies that pass.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_over_limit_returns_413"
+    },
+    {
+      "criterion": "ACC5",
+      "line": 230,
+      "note": "Multipart is rejected at len(body)-1 and accepted at len(body). The chunked body and the understated Content-Length are covered by test_application_limit_chunked_without_content_length and test_understated_content_length_does_not_let_body_through.",
+      "status": "covered",
+      "test": "tests/test_body_limit.py::test_multipart_counts_total_including_encoding_overhead"
+    },
+    {
+      "criterion": "ACC6",
+      "line": 94,
+      "note": "A declared length of 11 over a limit of 10 returns 413 and the receive call list is empty.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_declared_content_length_fails_fast_without_receive"
+    },
+    {
+      "criterion": "ACC7",
+      "line": 119,
+      "note": "Only the response start is sent. The text/plain body is asserted in test_over_limit_returns_413, and the stream stop in test_body_stream_stops_after_limit_exceeded.",
+      "status": "covered",
+      "test": "tests/middleware/test_body_limit.py::test_response_already_started_sends_no_second_response"
+    },
+    {
+      "criterion": "ACC8",
+      "line": 248,
+      "note": "A KeyboardInterrupt mid-parse leaves the temp file closed. The body-limit path is covered by test_multipart_closes_temp_files_when_body_limit_is_hit.",
+      "status": "covered",
+      "test": "tests/test_body_limit.py::test_multipart_closes_temp_files_on_any_exception"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tests/test_body_limit.py",
+      "line": 0,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test sends an oversized body through a BaseHTTPMiddleware that calls call_next without reading the body first, so exception propagation through its task group is not exercised."
+    },
+    {
+      "file": "tests/test_body_limit.py",
+      "line": 126,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "test_application_router_limit_overrides_outer sets router.max_body_size by hand and only asserts 413, which does not prove an override; drop it or replace it with a real Router-level test."
+    },
+    {
+      "file": "tests/middleware/test_body_limit.py",
+      "line": 96,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "test_declared_content_length_checked_lazily_when_eager_check_disabled asserts that receive is never reached, the same as the eager test, so it does not show the lazy path differs."
+    }
+  ],
+  "verdict": "approve"
+}

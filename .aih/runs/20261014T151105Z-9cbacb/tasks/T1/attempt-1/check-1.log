@@ -1,0 +1,52 @@
+.......................................F.........................F..     [100%]
+================================== FAILURES ===================================
+______ test_multipart_closes_temp_files_when_body_limit_is_hit[asyncio] _______
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_multipart_closes_temp_files_when_body_limit_is_hit(test_client_factory: TestClientFactory) -> None:
+        created: list[Any] = []
+        original = formparsers.SpooledTemporaryFile
+    
+        def tracking(*args: Any, **kwargs: Any) -> Any:
+            file = original(*args, **kwargs)
+            created.append(file)
+            return file
+    
+        body, content_type = multipart_body(500)
+        app = Starlette(routes=[Route("/", form_endpoint, methods=["POST"])], max_body_size=300)
+        with mock.patch.object(formparsers, "SpooledTemporaryFile", tracking):
+            response = test_client_factory(app).post("/", content=split(body, 200), headers={"content-type": content_type})
+        assert response.status_code == 413
+>       assert len(created) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_body_limit.py:267: AssertionError
+________ test_multipart_closes_temp_files_when_body_limit_is_hit[trio] ________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_multipart_closes_temp_files_when_body_limit_is_hit(test_client_factory: TestClientFactory) -> None:
+        created: list[Any] = []
+        original = formparsers.SpooledTemporaryFile
+    
+        def tracking(*args: Any, **kwargs: Any) -> Any:
+            file = original(*args, **kwargs)
+            created.append(file)
+            return file
+    
+        body, content_type = multipart_body(500)
+        app = Starlette(routes=[Route("/", form_endpoint, methods=["POST"])], max_body_size=300)
+        with mock.patch.object(formparsers, "SpooledTemporaryFile", tracking):
+            response = test_client_factory(app).post("/", content=split(body, 200), headers={"content-type": content_type})
+        assert response.status_code == 413
+>       assert len(created) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_body_limit.py:267: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_body_limit.py::test_multipart_closes_temp_files_when_body_limit_is_hit[asyncio]
+FAILED tests/test_body_limit.py::test_multipart_closes_temp_files_when_body_limit_is_hit[trio]
+2 failed, 66 passed in 0.52s

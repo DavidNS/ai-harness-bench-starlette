@@ -1,0 +1,42 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "tests/test_body_limit.py::test_unlimited_by_default (route, mount, router paths on Starlette) and test_standalone_router_unlimited_by_default; tests/middleware/test_body_limit.py::test_unlimited_plain_app_is_untouched."
+    },
+    {
+      "criterion": "ACC2",
+      "note": "tests/test_body_limit.py::test_application_limit and test_inner_limit (route, mount, router) check 413 over N and 200 at N. test_standalone_router_limit covers a bare Router."
+    },
+    {
+      "criterion": "ACC3",
+      "note": "tests/test_body_limit.py::test_inner_limit_raises_outer, test_inner_limit_lowers_outer, test_other_routes_keep_outer_limit, test_mounted_application_limit_overrides_outer, test_application_router_limit_overrides_outer; plus test_inner_limit_raises_outer_limit and test_inner_limit_lowers_outer_limit in the middleware tests."
+    },
+    {
+      "criterion": "ACC4",
+      "note": "tests/middleware/test_body_limit.py::test_under_and_at_limit_passes and test_over_limit_returns_413 wrap a plain ASGI app. test_non_http_scope_passes_through and test_non_request_messages_are_not_counted cover the other branches."
+    },
+    {
+      "criterion": "ACC5",
+      "note": "tests/middleware/test_body_limit.py::test_understated_content_length_does_not_let_body_through and test_invalid_content_length_is_ignored. tests/test_body_limit.py::test_application_limit_chunked_without_content_length and test_multipart_counts_total_including_encoding_overhead (413 at len(body)-1, 200 at len(body))."
+    },
+    {
+      "criterion": "ACC6",
+      "note": "tests/middleware/test_body_limit.py::test_declared_content_length_fails_fast_without_receive (receive never called) and test_declared_content_length_checked_lazily_when_eager_check_disabled. tests/test_body_limit.py::test_content_length_fail_fast_does_not_run_endpoint."
+    },
+    {
+      "criterion": "ACC7",
+      "note": "The 413 text/plain 'Content Too Large' is asserted in test_over_limit_returns_413 and test_application_limit. test_response_already_started_sends_no_second_response, test_response_already_started_is_not_replaced and test_body_stream_stops_after_limit_exceeded cover the already-started and stream-stop cases."
+    },
+    {
+      "criterion": "ACC8",
+      "note": "tests/test_body_limit.py::test_multipart_closes_temp_files_on_any_exception (KeyboardInterrupt, a non-Exception BaseException) and test_multipart_closes_temp_files_when_body_limit_is_hit (spooled file closed after 413)."
+    },
+    {
+      "criterion": "ACC9",
+      "note": "Documented in docs/applications.md (Limiting the request body size), docs/routing.md (same heading) and docs/middleware.md (RequestBodyLimitMiddleware section)."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Added RequestBodyLimitMiddleware (starlette/middleware/body_limit.py) and a max_body_size option on Starlette, Router, Mount and Route. The two new test files pass (67 tests). I did not run the rest of the existing suite. Nested limits share one per-request state in the scope, so an inner limit replaces the outer one. When an inner limit exists, the app-level Content-Length check waits until the first read, otherwise it would reject bodies the inner limit allows. The app-level middleware sits just inside ServerErrorMiddleware. MultiPartParser now closes its temp files on any BaseException. Docs added in applications.md, routing.md and middleware.md."
+}

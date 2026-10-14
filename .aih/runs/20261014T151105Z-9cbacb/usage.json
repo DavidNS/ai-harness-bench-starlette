@@ -1,0 +1,85 @@
+{
+  "cache_creation_input_tokens": 127588.0,
+  "cache_read_input_tokens": 796182.0,
+  "cost_usd": 1.006868,
+  "duration_ms": 275123,
+  "input_tokens": 54.0,
+  "models": [
+    "claude-sonnet-5-5"
+  ],
+  "num_turns": 60,
+  "output_tokens": 41679.0,
+  "sessions": [
+    {
+      "cache_creation_input_tokens": 10568,
+      "cache_read_input_tokens": 0,
+      "cost_usd": 0.051306,
+      "duration_ms": 6450,
+      "input_tokens": 2,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 2,
+      "output_tokens": 903,
+      "purpose": "intake",
+      "session_id": "fbe82b1b-1aaf-4ee9-8eea-044a32a32e35"
+    },
+    {
+      "cache_creation_input_tokens": 23002,
+      "cache_read_input_tokens": 64592,
+      "cost_usd": 0.1447572,
+      "duration_ms": 35658,
+      "input_tokens": 10,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 11,
+      "output_tokens": 4627,
+      "purpose": "plan",
+      "session_id": "910b9c37-dc3c-4e08-b1b8-705e8a600d6f"
+    },
+    {
+      "cache_creation_input_tokens": 5569.0,
+      "cache_read_input_tokens": 51235.0,
+      "cost_usd": 0.051127,
+      "duration_ms": 13810,
+      "input_tokens": 4.0,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 3,
+      "output_tokens": 2372.0,
+      "purpose": "plan",
+      "resumed": true,
+      "session_id": "910b9c37-dc3c-4e08-b1b8-705e8a600d6f"
+    },
+    {
+      "cache_creation_input_tokens": 62812,
+      "cache_read_input_tokens": 680355,
+      "cost_usd": 0.6237755000000001,
+      "duration_ms": 194188,
+      "input_tokens": 36,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 42,
+      "output_tokens": 30442,
+      "purpose": "implement",
+      "session_id": "a3795ad7-090b-4d46-9002-b54e20d773ad"
+    },
+    {
+      "cache_creation_input_tokens": 25637,
+      "cache_read_input_tokens": 0,
+      "cost_usd": 0.135902,
+      "duration_ms": 25017,
+      "input_tokens": 2,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 2,
+      "output_tokens": 3335,
+      "purpose": "review",
+      "session_id": "41cff134-2f24-4903-ba91-d408f52620f7"
+    }
+  ]
+}

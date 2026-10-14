@@ -1,0 +1,212 @@
+{
+  "criteria": [
+    {
+      "intent": "INTENT1",
+      "key": "C1",
+      "kind": "behavior",
+      "text": "With max_body_size unset (None) on Starlette, Router, Mount and Route, a large body is read in full and returns 200 as today."
+    },
+    {
+      "intent": "INTENT1",
+      "key": "C2",
+      "kind": "behavior",
+      "text": "Starlette(max_body_size=N), Router(max_body_size=N), Mount(max_body_size=N) and Route(max_body_size=N) each return 413 for a body over N and succeed for a body at or under N."
+    },
+    {
+      "intent": "INTENT2",
+      "key": "C3",
+      "kind": "behavior",
+      "text": "An inner route, mount or router limit higher than the app-wide limit allows a body the outer limit would reject; an inner lower limit rejects a body the outer would allow."
+    },
+    {
+      "intent": "INTENT3",
+      "key": "C4",
+      "kind": "behavior",
+      "text": "RequestBodyLimitMiddleware(app, max_body_size=N) wraps a plain ASGI app and returns 413 for oversized bodies and passes smaller ones."
+    },
+    {
+      "intent": "INTENT4",
+      "key": "C5",
+      "kind": "behavior",
+      "text": "A chunked body with no Content-Length, or one with an understated Content-Length, exceeding the limit yields 413; multipart bodies are counted in total including encoding overhead."
+    },
+    {
+      "intent": "INTENT5",
+      "key": "C6",
+      "kind": "behavior",
+      "text": "A declared Content-Length over the limit gets 413 and the app's receive is never called / the body is not read."
+    },
+    {
+      "intent": "INTENT6",
+      "key": "C7",
+      "kind": "behavior",
+      "text": "The 413 response is text/plain with body 'Content Too Large'; if the app already sent http.response.start, no second response is sent and the body stream stops."
+    },
+    {
+      "intent": "INTENT7",
+      "key": "C8",
+      "kind": "behavior",
+      "text": "When multipart parsing is interrupted by any exception (including the body-limit one), all spooled temp files are closed."
+    },
+    {
+      "intent": "INTENT8",
+      "key": "C9",
+      "kind": "other",
+      "text": "docs/applications.md, docs/routing.md and docs/middleware.md document max_body_size and RequestBodyLimitMiddleware."
+    }
+  ],
+  "intents": [
+    {
+      "evidence": [
+        {
+          "end": 206,
+          "path": "starlette/routing.py",
+          "quote": "middleware: Sequence[Middleware] | None = None,",
+          "start": 197
+        }
+      ],
+      "intent": "INTENT1",
+      "rationale": "No max_body_size option exists on Starlette, Router, Mount or Route.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 72,
+          "path": "starlette/applications.py",
+          "quote": "[Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]",
+          "start": 68
+        }
+      ],
+      "intent": "INTENT2",
+      "rationale": "Starlette installs the limit middleware outside user middleware and routing; Router/Mount/Route wrap their inner app. Inner wrapper unwraps the outer counting receive so it can raise or lower the limit.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT3",
+      "rationale": "New starlette/middleware/body_limit.py with RequestBodyLimitMiddleware.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT4",
+      "rationale": "The middleware wraps receive and counts len(body) of every http.request message.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT5",
+      "rationale": "The middleware checks the Content-Length header up front and responds 413 without calling receive.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT6",
+      "rationale": "Middleware sends PlainTextResponse 413 'Content Too Large' if no response has started, otherwise sends nothing more; receive after the limit raises/ends the stream.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 295,
+          "path": "starlette/formparsers.py",
+          "quote": "except (MultiPartException, OSError) as exc:",
+          "start": 291
+        }
+      ],
+      "intent": "INTENT7",
+      "rationale": "MultiPartParser.parse only closes files on MultiPartException/OSError; it must close on any interruption (BaseException), including the body-limit exception.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [
+        {
+          "end": 5,
+          "path": "docs/middleware.md",
+          "quote": "#",
+          "start": 1
+        }
+      ],
+      "intent": "INTENT8",
+      "rationale": "Docs for the option and the middleware are needed.",
+      "resolution": "change"
+    },
+    {
+      "evidence": [],
+      "intent": "INTENT9",
+      "rationale": "New tests are needed.",
+      "resolution": "change"
+    }
+  ],
+  "summary": "One PR: a new RequestBodyLimitMiddleware plus max_body_size wiring on Starlette/Router/Mount/Route, a multipart temp-file cleanup fix, docs and tests. The app-level middleware should sit just inside ServerErrorMiddleware so the 413 isn't turned into a 500.",
+  "tasks": [
+    {
+      "criteria": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8",
+        "C9"
+      ],
+      "depends_on": [],
+      "files": [
+        {
+          "action": "create",
+          "path": "starlette/middleware/body_limit.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/applications.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/routing.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "starlette/formparsers.py",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "docs/middleware.md",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "docs/applications.md",
+          "role": "production"
+        },
+        {
+          "action": "modify",
+          "path": "docs/routing.md",
+          "role": "production"
+        },
+        {
+          "action": "create",
+          "path": "tests/middleware/test_body_limit.py",
+          "role": "test"
+        },
+        {
+          "action": "create",
+          "path": "tests/test_body_limit.py",
+          "role": "test"
+        }
+      ],
+      "key": "T1",
+      "summary": "Add RequestBodyLimitMiddleware (counting receive wrapper, Content-Length fail-fast, 413 handling, unwrap of outer wrapper so inner limits override), wire max_body_size into Starlette (placed just inside ServerErrorMiddleware, outside user middleware), Router, Mount and Route; make MultiPartParser close temp files on any BaseException; then add tests and docs.",
+      "tests": [
+        "tests/middleware/test_body_limit.py",
+        "tests/test_body_limit.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "constraints": [
+    "Default `max_body_size=None` must keep today's unlimited behaviour.",
+    "The existing test suite must stay green.",
+    "Do not change unrelated behaviour."
+  ],
+  "intents": [
+    {
+      "id": "INTENT1",
+      "key": "max-body-size-option",
+      "text": "Add a `max_body_size` option (default `None`, meaning unlimited as today) to `Starlette`, `Router`, `Mount` and `Route`."
+    },
+    {
+      "id": "INTENT2",
+      "key": "limit-scoping",
+      "text": "The application-level limit applies before routing, and a limit set on an inner route, mount or router overrides the outer one for that part of the tree, whether it raises or lowers the outer limit."
+    },
+    {
+      "id": "INTENT3",
+      "key": "standalone-middleware",
+      "text": "Provide a standalone ASGI middleware `RequestBodyLimitMiddleware` with the same limit behaviour that works with any ASGI application."
+    },
+    {
+      "id": "INTENT4",
+      "key": "byte-counting",
+      "text": "Count the body bytes actually received from the ASGI server (including multipart file data and encoding overhead) against the limit, so an absent or understated `Content-Length` does not let an oversized body through."
+    },
+    {
+      "id": "INTENT5",
+      "key": "content-length-fail-fast",
+      "text": "Reject a request whose declared `Content-Length` exceeds the limit with a 413 before any of the body is read."
+    },
+    {
+      "id": "INTENT6",
+      "key": "413-response",
+      "text": "A request that exceeds the limit gets a plain-text `413 Content Too Large` response; if the application has already started its response, no second response is sent and the body stream is stopped."
+    },
+    {
+      "id": "INTENT7",
+      "key": "multipart-tempfile-cleanup",
+      "text": "Multipart parsing closes its temporary files whenever a parse is interrupted, including when the request crosses the body limit."
+    },
+    {
+      "id": "INTENT8",
+      "key": "docs",
+      "text": "Document the `max_body_size` option and `RequestBodyLimitMiddleware`."
+    },
+    {
+      "id": "INTENT9",
+      "key": "tests",
+      "text": "Add tests for the limit on the application, router, mount and route (including an inner limit raising and lowering the outer one), the standalone middleware, the Content-Length fail-fast, the multipart case and temp-file cleanup."
+    }
+  ],
+  "request": "Add configurable limits for the total HTTP request body size (encode/starlette issue #2155).\n\nToday any Starlette application can be taken down by a client that streams a huge body: nothing\nstops `await request.json()` from buffering gigabytes. We need a limit the application can set,\nwith a 413 response when a request exceeds it.\n\nRequirements:\n\n- A `max_body_size` option on `Starlette`, `Router`, `Mount` and `Route`. Default `None` keeps\n  today's unlimited behaviour. The application-level limit applies before routing; a limit set on\n  an inner route, mount or router overrides the outer one for that part of the tree, so it can\n  raise or lower the application-wide limit.\n- The same behaviour as a standalone ASGI middleware, `RequestBodyLimitMiddleware`, usable with any\n  ASGI application.\n- The limit counts the body bytes actually received from the ASGI server, multipart file data and\n  encoding overhead included. `Content-Length` is only a fail-fast check: a declared length over the\n  limit is rejected before the body is read, and an absent or understated header does not let a\n  body through. A request that exceeds the limit gets a plain-text `413 Content Too Large`\n  response; if the application has already started its response, no second response is sent and\n  the body stream is stopped.\n- Multipart parsing closes its temporary files whenever a parse is interrupted, including when the\n  request crosses the body limit.\n- Document the option and the middleware.\n\nAdd tests for the limit on the application, router, mount and route (including an inner limit\nraising and lowering the outer one), the standalone middleware, the Content-Length fail-fast, the\nmultipart case and the temp-file cleanup. The existing suite must stay green. Do not change\nunrelated behaviour.",
+  "rounds": [],
+  "summary": ""
+}
