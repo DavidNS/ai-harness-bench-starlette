@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware, has_body_limit
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,7 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,8 +48,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get
+                a 413 response. `None` (the default) means unlimited. A limit set on an
+                inner router, mount or route overrides this one.
         """
         self.debug = debug
+        self.max_body_size = max_body_size
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
@@ -65,8 +71,21 @@ class Starlette:
             else:
                 exception_handlers[key] = value
 
+        body_limit_middleware = []
+        if self.max_body_size is not None:
+            body_limit_middleware = [
+                Middleware(
+                    RequestBodyLimitMiddleware,
+                    max_body_size=self.max_body_size,
+                    check_content_length=not (
+                        self.router.max_body_size is not None or has_body_limit(self.router.routes)
+                    ),
+                )
+            ]
+
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + body_limit_middleware
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
