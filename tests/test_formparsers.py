@@ -986,3 +986,34 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+@pytest.mark.anyio
+async def test_multipart_closes_tempfile_on_any_interruption() -> None:
+    """Temporary files must be closed when the parse is interrupted by any exception."""
+    closed: list[SpooledTemporaryFile[bytes]] = []
+
+    class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+        def close(self) -> None:
+            closed.append(self)
+            super().close()
+
+    boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+    first_chunk = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        f"partial content"
+    ).encode()
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield first_chunk
+        raise RuntimeError("interrupted")
+
+    headers = Headers({"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    parser = MultiPartParser(headers, stream())
+    with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+        with pytest.raises(RuntimeError, match="interrupted"):
+            await parser.parse()
+
+    assert len(closed) == 1
