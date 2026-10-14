@@ -1,0 +1,34 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "tests/middleware/test_body_limit.py: test_no_limit_allows_any_body, test_body_within_limit, test_chunked_body_without_content_length_is_counted, test_non_http_scope_passes_through."
+    },
+    {
+      "criterion": "ACC2",
+      "note": "test_body_over_limit (413, text/plain, 'Content Too Large'); test_response_started_already_sends_no_second_response (receive returns http.disconnect, later sends dropped); test_client_disconnect_after_limit_is_swallowed; test_client_disconnect_without_limit_propagates. tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response covers the same at app level."
+    },
+    {
+      "criterion": "ACC3",
+      "note": "test_declared_content_length_is_rejected_before_body_is_read (raw receive never called); test_declared_content_length_fails_fast; test_understated_content_length_is_enforced; test_invalid_content_length_is_ignored. tests/test_body_limit.py::test_application_limit_applies_before_routing covers a declared length on a 404 path."
+    },
+    {
+      "criterion": "ACC4",
+      "note": "tests/test_body_limit.py: test_default_is_unlimited, test_application_limit, test_router_limit, test_mount_limit, test_route_limit."
+    },
+    {
+      "criterion": "ACC5",
+      "note": "tests/test_body_limit.py: test_application_limit_applies_before_routing, test_inner_limits_raise_outer_limit and test_inner_limits_lower_outer_limit (route, mount and router, with Content-Length and chunked bodies). tests/middleware/test_body_limit.py::test_nested_middleware_overrides_limit."
+    },
+    {
+      "criterion": "ACC6",
+      "note": "tests/test_body_limit.py::test_multipart_overhead_counts_toward_limit (limit one byte under the full body size gives 413) and test_multipart_temp_files_closed_when_limit_is_crossed (multi-chunk raw ASGI, temp file closed). tests/test_formparsers.py::test_multipart_closes_tempfile_on_any_interruption (RuntimeError mid-parse closes the file)."
+    },
+    {
+      "criterion": "ACC7",
+      "note": "Documented in docs/middleware.md (RequestBodyLimitMiddleware section), docs/applications.md (Limiting the request body size) and docs/routing.md (Limiting the request body size). No test; docs only."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Added RequestBodyLimitMiddleware (starlette/middleware/body_limit.py) and max_body_size on Starlette, Router, Mount and Route. Multipart temp files now close on any exception (BaseException). Tests and docs are added. The three listed test files pass (152 passed). I did not run the rest of the suite or any lint/type checks. The sandbox only allowed `aih check` on the listed test files.\n\nOne design choice: the middleware does not check a declared Content-Length when the request starts. It checks it when the app first calls receive() or starts its response. Checking up front would make an outer app limit reject a request that an inner route or mount is configured to raise. A handler that never reads the body still gets a 413, because the check also runs when it sends its response. The cost is that the app is called before a too-large declared length is rejected. A nested middleware does reject immediately, since its limit is final."
+}

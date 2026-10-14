@@ -1,0 +1,90 @@
+............................F.....F....F.....F.......................... [ 47%]
+........................................................................ [ 94%]
+........                                                                 [100%]
+================================== FAILURES ===================================
+___________ test_application_limit_applies_before_routing[asyncio] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_application_limit_applies_before_routing(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(routes=[], max_body_size=10)
+        client = test_client_factory(app)
+>       assert client.post("/missing", content=b"x" * 11).status_code == 413
+E       AssertionError: assert 404 == 413
+E        +  where 404 = <Response [404 Not Found]>.status_code
+E        +    where <Response [404 Not Found]> = post('/missing', content=(b'x' * 11))
+E        +      where post = <starlette.testclient.TestClient object at 0x000002219A5B1340>.post
+
+tests\test_body_limit.py:45: AssertionError
+_ test_response_started_before_limit_is_not_followed_by_second_response[asyncio] _
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_response_started_before_limit_is_not_followed_by_second_response(
+        test_client_factory: TestClientFactory,
+    ) -> None:
+        async def streaming(scope, receive, send):  # type: ignore[no-untyped-def]
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+        app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+        client = test_client_factory(app)
+        response = client.post("/", content=b"x" * 10)
+        assert response.status_code == 200
+>       assert response.content == b"started"
+E       AssertionError: assert b'' == b'started'
+E         
+E         Use -v to get more diff
+
+tests\test_body_limit.py:144: AssertionError
+_____________ test_application_limit_applies_before_routing[trio] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_application_limit_applies_before_routing(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(routes=[], max_body_size=10)
+        client = test_client_factory(app)
+>       assert client.post("/missing", content=b"x" * 11).status_code == 413
+E       AssertionError: assert 404 == 413
+E        +  where 404 = <Response [404 Not Found]>.status_code
+E        +    where <Response [404 Not Found]> = post('/missing', content=(b'x' * 11))
+E        +      where post = <starlette.testclient.TestClient object at 0x000002219A69F0E0>.post
+
+tests\test_body_limit.py:45: AssertionError
+_ test_response_started_before_limit_is_not_followed_by_second_response[trio] _
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_response_started_before_limit_is_not_followed_by_second_response(
+        test_client_factory: TestClientFactory,
+    ) -> None:
+        async def streaming(scope, receive, send):  # type: ignore[no-untyped-def]
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+        app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+        client = test_client_factory(app)
+        response = client.post("/", content=b"x" * 10)
+        assert response.status_code == 200
+>       assert response.content == b"started"
+E       AssertionError: assert b'' == b'started'
+E         
+E         Use -v to get more diff
+
+tests\test_body_limit.py:144: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_body_limit.py::test_application_limit_applies_before_routing[asyncio]
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[asyncio]
+FAILED tests/test_body_limit.py::test_application_limit_applies_before_routing[trio]
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[trio]
+4 failed, 148 passed in 1.84s

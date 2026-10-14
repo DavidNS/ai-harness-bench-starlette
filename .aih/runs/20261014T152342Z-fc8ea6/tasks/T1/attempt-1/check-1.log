@@ -1,0 +1,174 @@
+..............................F.F.F......F.F.F.......................... [ 48%]
+........................................................................ [ 96%]
+......                                                                   [100%]
+================================== FAILURES ===================================
+________________ test_inner_limits_raise_outer_limit[asyncio] _________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_inner_limits_raise_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+                Route("/route", size, methods=["POST"], max_body_size=100),
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+        client = test_client_factory(app)
+        for path in ("/route", "/mount/", "/router/"):
+>           assert client.post(path, content=b"x" * 50).text == "50"
+E           AssertionError: assert 'Content Too Large' == '50'
+E             
+E             - 50
+E             + Content Too Large
+
+tests\test_body_limit.py:98: AssertionError
+_ test_response_started_before_limit_is_not_followed_by_second_response[asyncio] _
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_response_started_before_limit_is_not_followed_by_second_response(
+        test_client_factory: TestClientFactory,
+    ) -> None:
+        async def streaming(scope, receive, send):  # type: ignore[no-untyped-def]
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+        app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+        client = test_client_factory(app)
+        response = client.post("/", content=b"x" * 10)
+>       assert response.status_code == 200
+E       assert 413 == 200
+E        +  where 413 = <Response [413 Request Entity Too Large]>.status_code
+
+tests\test_body_limit.py:140: AssertionError
+_______ test_multipart_temp_files_closed_when_limit_is_crossed[asyncio] _______
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_multipart_temp_files_closed_when_limit_is_crossed(test_client_factory: TestClientFactory) -> None:
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        body = multipart_body(boundary, 5000)
+        app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=1000)
+        client = test_client_factory(app)
+    
+        def chunks() -> Iterator[bytes]:
+            for i in range(0, len(body), 500):
+                yield body[i : i + 500]
+    
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            response = client.post("/", content=chunks(), headers=headers)
+    
+        assert response.status_code == 413
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_body_limit.py:195: AssertionError
+__________________ test_inner_limits_raise_outer_limit[trio] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_inner_limits_raise_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+                Route("/route", size, methods=["POST"], max_body_size=100),
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+        client = test_client_factory(app)
+        for path in ("/route", "/mount/", "/router/"):
+>           assert client.post(path, content=b"x" * 50).text == "50"
+E           AssertionError: assert 'Content Too Large' == '50'
+E             
+E             - 50
+E             + Content Too Large
+
+tests\test_body_limit.py:98: AssertionError
+_ test_response_started_before_limit_is_not_followed_by_second_response[trio] _
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_response_started_before_limit_is_not_followed_by_second_response(
+        test_client_factory: TestClientFactory,
+    ) -> None:
+        async def streaming(scope, receive, send):  # type: ignore[no-untyped-def]
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+        app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+        client = test_client_factory(app)
+        response = client.post("/", content=b"x" * 10)
+>       assert response.status_code == 200
+E       assert 413 == 200
+E        +  where 413 = <Response [413 Request Entity Too Large]>.status_code
+
+tests\test_body_limit.py:140: AssertionError
+________ test_multipart_temp_files_closed_when_limit_is_crossed[trio] _________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_multipart_temp_files_closed_when_limit_is_crossed(test_client_factory: TestClientFactory) -> None:
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        body = multipart_body(boundary, 5000)
+        app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=1000)
+        client = test_client_factory(app)
+    
+        def chunks() -> Iterator[bytes]:
+            for i in range(0, len(body), 500):
+                yield body[i : i + 500]
+    
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            response = client.post("/", content=chunks(), headers=headers)
+    
+        assert response.status_code == 413
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_body_limit.py:195: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_body_limit.py::test_inner_limits_raise_outer_limit[asyncio]
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[asyncio]
+FAILED tests/test_body_limit.py::test_multipart_temp_files_closed_when_limit_is_crossed[asyncio]
+FAILED tests/test_body_limit.py::test_inner_limits_raise_outer_limit[trio] - ...
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[trio]
+FAILED tests/test_body_limit.py::test_multipart_temp_files_closed_when_limit_is_crossed[trio]
+6 failed, 144 passed in 1.72s

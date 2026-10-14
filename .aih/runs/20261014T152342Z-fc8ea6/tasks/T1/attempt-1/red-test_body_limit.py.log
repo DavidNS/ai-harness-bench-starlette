@@ -1,0 +1,326 @@
+.FFFFFFFFFF.FFFFFFFFFF                                                   [100%]
+================================== FAILURES ===================================
+_______________________ test_application_limit[asyncio] _______________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_application_limit(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(routes=[Route("/", size, methods=["POST"])], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:32: TypeError
+___________ test_application_limit_applies_before_routing[asyncio] ____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_application_limit_applies_before_routing(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(routes=[], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:43: TypeError
+_________________________ test_router_limit[asyncio] __________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_router_limit(test_client_factory: TestClientFactory) -> None:
+>       app = Router(routes=[Route("/", size, methods=["POST"])], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:50: TypeError
+__________________________ test_mount_limit[asyncio] __________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_mount_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Mount("/limited", routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/free", size, methods=["POST"]),
+            ]
+        )
+E       TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:61: TypeError
+__________________________ test_route_limit[asyncio] __________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_route_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/limited", size, methods=["POST"], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/free", size, methods=["POST"]),
+            ]
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:74: TypeError
+________________ test_inner_limits_raise_outer_limit[asyncio] _________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_inner_limits_raise_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/route", size, methods=["POST"], max_body_size=100),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:89: TypeError
+________________ test_inner_limits_lower_outer_limit[asyncio] _________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_inner_limits_lower_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/route", size, methods=["POST"], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=100,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:110: TypeError
+_ test_response_started_before_limit_is_not_followed_by_second_response[asyncio] _
+
+    @pytest.mark.anyio
+    async def test_response_started_before_limit_is_not_followed_by_second_response() -> None:
+        async def streaming(scope: Scope, receive: Receive, send: Send) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+>       app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:139: TypeError
+____________ test_multipart_overhead_counts_toward_limit[asyncio] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='asyncio', backend_options={})
+
+    def test_multipart_overhead_counts_toward_limit(test_client_factory: TestClientFactory) -> None:
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        body = multipart_body(boundary, 10)
+>       app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=len(body))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:173: TypeError
+_______ test_multipart_temp_files_closed_when_limit_is_crossed[asyncio] _______
+
+    @pytest.mark.anyio
+    async def test_multipart_temp_files_closed_when_limit_is_crossed() -> None:
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        body = multipart_body(boundary, 5000)
+>       app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=1000)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:196: TypeError
+________________________ test_application_limit[trio] _________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_application_limit(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(routes=[Route("/", size, methods=["POST"])], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:32: TypeError
+_____________ test_application_limit_applies_before_routing[trio] _____________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_application_limit_applies_before_routing(test_client_factory: TestClientFactory) -> None:
+>       app = Starlette(routes=[], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:43: TypeError
+___________________________ test_router_limit[trio] ___________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_router_limit(test_client_factory: TestClientFactory) -> None:
+>       app = Router(routes=[Route("/", size, methods=["POST"])], max_body_size=10)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Router.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:50: TypeError
+___________________________ test_mount_limit[trio] ____________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_mount_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Mount("/limited", routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/free", size, methods=["POST"]),
+            ]
+        )
+E       TypeError: Mount.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:61: TypeError
+___________________________ test_route_limit[trio] ____________________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_route_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/limited", size, methods=["POST"], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Route("/free", size, methods=["POST"]),
+            ]
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:74: TypeError
+__________________ test_inner_limits_raise_outer_limit[trio] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_inner_limits_raise_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/route", size, methods=["POST"], max_body_size=100),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=100),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=10,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:89: TypeError
+__________________ test_inner_limits_lower_outer_limit[trio] __________________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_inner_limits_lower_outer_limit(test_client_factory: TestClientFactory) -> None:
+        app = Starlette(
+            routes=[
+>               Route("/route", size, methods=["POST"], max_body_size=10),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                Mount("/mount", routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                Mount(
+                    "/router",
+                    app=Router(routes=[Route("/", size, methods=["POST"])], max_body_size=10),
+                ),
+                Route("/plain", size, methods=["POST"]),
+            ],
+            max_body_size=100,
+        )
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:110: TypeError
+_ test_response_started_before_limit_is_not_followed_by_second_response[trio] _
+
+    @pytest.mark.anyio
+    async def test_response_started_before_limit_is_not_followed_by_second_response() -> None:
+        async def streaming(scope: Scope, receive: Receive, send: Send) -> None:
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"started", "more_body": True})
+            while True:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+    
+>       app = Starlette(routes=[Mount("/", app=streaming)], max_body_size=5)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:139: TypeError
+______________ test_multipart_overhead_counts_toward_limit[trio] ______________
+
+test_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})
+
+    def test_multipart_overhead_counts_toward_limit(test_client_factory: TestClientFactory) -> None:
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        body = multipart_body(boundary, 10)
+>       app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=len(body))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:173: TypeError
+________ test_multipart_temp_files_closed_when_limit_is_crossed[trio] _________
+
+    @pytest.mark.anyio
+    async def test_multipart_temp_files_closed_when_limit_is_crossed() -> None:
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        body = multipart_body(boundary, 5000)
+>       app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=1000)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Starlette.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests\test_body_limit.py:196: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_body_limit.py::test_application_limit[asyncio] - TypeError:...
+FAILED tests/test_body_limit.py::test_application_limit_applies_before_routing[asyncio]
+FAILED tests/test_body_limit.py::test_router_limit[asyncio] - TypeError: Rout...
+FAILED tests/test_body_limit.py::test_mount_limit[asyncio] - TypeError: Mount...
+FAILED tests/test_body_limit.py::test_route_limit[asyncio] - TypeError: Route...
+FAILED tests/test_body_limit.py::test_inner_limits_raise_outer_limit[asyncio]
+FAILED tests/test_body_limit.py::test_inner_limits_lower_outer_limit[asyncio]
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[asyncio]
+FAILED tests/test_body_limit.py::test_multipart_overhead_counts_toward_limit[asyncio]
+FAILED tests/test_body_limit.py::test_multipart_temp_files_closed_when_limit_is_crossed[asyncio]
+FAILED tests/test_body_limit.py::test_application_limit[trio] - TypeError: St...
+FAILED tests/test_body_limit.py::test_application_limit_applies_before_routing[trio]
+FAILED tests/test_body_limit.py::test_router_limit[trio] - TypeError: Router....
+FAILED tests/test_body_limit.py::test_mount_limit[trio] - TypeError: Mount.__...
+FAILED tests/test_body_limit.py::test_route_limit[trio] - TypeError: Route.__...
+FAILED tests/test_body_limit.py::test_inner_limits_raise_outer_limit[trio] - ...
+FAILED tests/test_body_limit.py::test_inner_limits_lower_outer_limit[trio] - ...
+FAILED tests/test_body_limit.py::test_response_started_before_limit_is_not_followed_by_second_response[trio]
+FAILED tests/test_body_limit.py::test_multipart_overhead_counts_toward_limit[trio]
+FAILED tests/test_body_limit.py::test_multipart_temp_files_closed_when_limit_is_crossed[trio]
+20 failed, 2 passed in 0.31s

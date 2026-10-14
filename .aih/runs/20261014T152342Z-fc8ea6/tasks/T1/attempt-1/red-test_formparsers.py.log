@@ -1,0 +1,235 @@
+..................................................F..........F.......... [ 69%]
+.............................F..                                         [100%]
+================================== FAILURES ===================================
+_________ test_multipart_closes_tempfile_on_any_interruption[asyncio] _________
+
+    @pytest.mark.anyio
+    async def test_multipart_closes_tempfile_on_any_interruption() -> None:
+        """Temporary files must be closed when the parse is interrupted by any exception."""
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        first_chunk = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+            f"Content-Type: text/plain\r\n\r\n"
+            f"partial content"
+        ).encode()
+    
+        async def stream() -> AsyncGenerator[bytes, None]:
+            yield first_chunk
+            raise RuntimeError("interrupted")
+    
+        headers = Headers({"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        parser = MultiPartParser(headers, stream())
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            with pytest.raises(RuntimeError, match="interrupted"):
+                await parser.parse()
+    
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_formparsers.py:1019: AssertionError
+_______________ test_multipart_request_with_encoded_value[trio] _______________
+
+self = <tests.test_formparsers.test_multipart_closes_tempfile_on_any_interruption.<locals>.TrackingSpooledTemporaryFile object at 0x0000015AB6DF9360>
+
+    def __del__(self):
+        if not self.closed:
+>           _warnings.warn(
+                "Unclosed file {!r}".format(self),
+                ResourceWarning,
+                stacklevel=2,
+                source=self
+            )
+E           ResourceWarning: Unclosed file <tests.test_formparsers.test_multipart_closes_tempfile_on_any_interruption.<locals>.TrackingSpooledTemporaryFile object at 0x0000015AB6DF9360>
+
+C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py:752: ResourceWarning
+
+The above exception was the direct cause of the following exception:
+
+cls = <class '_pytest.runner.CallInfo'>
+func = <function call_and_report.<locals>.<lambda> at 0x0000015AB514A840>
+when = 'call'
+reraise = (<class '_pytest.outcomes.Exit'>, <class 'KeyboardInterrupt'>)
+
+    @classmethod
+    def from_call(
+        cls,
+        func: Callable[[], TResult],
+        when: Literal["collect", "setup", "call", "teardown"],
+        reraise: type[BaseException] | tuple[type[BaseException], ...] | None = None,
+    ) -> CallInfo[TResult]:
+        """Call func, wrapping the result in a CallInfo.
+    
+        :param func:
+            The function to call. Called without arguments.
+        :type func: Callable[[], _pytest.runner.TResult]
+        :param when:
+            The phase in which the function is called.
+        :param reraise:
+            Exception or exceptions that shall propagate if raised by the
+            function, instead of being wrapped in the CallInfo.
+        """
+        excinfo = None
+        instant = timing.Instant()
+        try:
+>           result: TResult | None = func()
+                                     ^^^^^^
+
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:361: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\skipping.py:268: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:183: in pytest_runtest_call
+    collect_unraisable(item.config)
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:79: in collect_unraisable
+    raise errors[0]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = <_pytest.config.Config object at 0x0000015AB1CA1AF0>
+
+    def collect_unraisable(config: Config) -> None:
+        pop_unraisable = config.stash[unraisable_exceptions].pop
+        errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+        meta = None
+        hook_error = None
+        try:
+            while True:
+                try:
+                    meta = pop_unraisable()
+                except IndexError:
+                    break
+    
+                if isinstance(meta, BaseException):
+                    hook_error = RuntimeError("Failed to process unraisable exception")
+                    hook_error.__cause__ = meta
+                    errors.append(hook_error)
+                    continue
+    
+                msg = meta.msg
+                try:
+>                   warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+E                   pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x0000015AB22A4CC0>
+E                   Enable tracemalloc to get traceback where the object was allocated.
+E                   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+..\..\..\..\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py:67: PytestUnraisableExceptionWarning
+__________ test_multipart_closes_tempfile_on_any_interruption[trio] ___________
+
+    @pytest.mark.anyio
+    async def test_multipart_closes_tempfile_on_any_interruption() -> None:
+        """Temporary files must be closed when the parse is interrupted by any exception."""
+        closed: list[SpooledTemporaryFile[bytes]] = []
+    
+        class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+            def close(self) -> None:
+                closed.append(self)
+                super().close()
+    
+        boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+        first_chunk = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+            f"Content-Type: text/plain\r\n\r\n"
+            f"partial content"
+        ).encode()
+    
+        async def stream() -> AsyncGenerator[bytes, None]:
+            yield first_chunk
+            raise RuntimeError("interrupted")
+    
+        headers = Headers({"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        parser = MultiPartParser(headers, stream())
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            with pytest.raises(RuntimeError, match="interrupted"):
+                await parser.parse()
+    
+>       assert len(closed) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\test_formparsers.py:1019: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_formparsers.py::test_multipart_closes_tempfile_on_any_interruption[asyncio]
+FAILED tests/test_formparsers.py::test_multipart_request_with_encoded_value[trio]
+FAILED tests/test_formparsers.py::test_multipart_closes_tempfile_on_any_interruption[trio]
+3 failed, 101 passed in 1.57s
+Traceback (most recent call last):
+  File "C:\Users\david\AppData\Local\Programs\Python\Python312\Lib\tempfile.py", line 752, in __del__
+    _warnings.warn(
+ResourceWarning: Unclosed file <tests.test_formparsers.test_multipart_closes_tempfile_on_any_interruption.<locals>.TrackingSpooledTemporaryFile object at 0x0000015AB519F700>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(_console_main())
+                     ^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\config\__init__.py", line 253, in _console_main
+    code = _main(prog=_get_prog_name(sys.argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\config\__init__.py", line 229, in _main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\main.py", line 377, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\main.py", line 372, in wrap_session
+    config._ensure_unconfigure()
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\config\__init__.py", line 1212, in _ensure_unconfigure
+    self.hook.pytest_unconfigure(config=self)
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py", line 173, in pytest_unconfigure
+    collect_unraisable(config)
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py", line 79, in collect_unraisable
+    raise errors[0]
+  File "C:\Users\david\git\ai-harness-e2e-benchmak\targets\.venv-starlette-max-body-size\Lib\site-packages\_pytest\unraisableexception.py", line 67, in collect_unraisable
+    warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+pytest.PytestUnraisableExceptionWarning: Exception ignored in: <function SpooledTemporaryFile.__del__ at 0x0000015AB22A4CC0>
+Enable tracemalloc to get traceback where the object was allocated.
+See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.

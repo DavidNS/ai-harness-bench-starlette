@@ -1,0 +1,91 @@
+{
+  "attempts_total": 1,
+  "base_ref": "main",
+  "base_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+  "baseline_green": false,
+  "created_at": "2026-10-14T15:23:42+00:00",
+  "head": "7781064829efb5408304bdbc725f237b83389d29",
+  "plan_session_id": "ee5a6f6d-c8bd-4293-a6d2-bdc21b65577f",
+  "plan_version": 1,
+  "repo": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\targets\\20261014T152339Z-starlette-max-body-size-gated-1",
+  "run_id": "20261014T152342Z-fc8ea6",
+  "status": "implemented",
+  "tasks": {
+    "T1": {
+      "advisories": [
+        {
+          "file": "starlette/middleware/body_limit.py",
+          "line": 38,
+          "pass": 1,
+          "severity": "advisory",
+          "text": "The Content-Length fail-fast is lazy: it runs on the first receive() or the response start, not when the request arrives. An app that does side effects before reading or responding is not stopped early. This is a deliberate trade-off to let inner limits override the outer one, but it is not documented."
+        },
+        {
+          "file": "tests/test_body_limit.py",
+          "line": 1,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test combines max_body_size with user middleware that wraps receive (for example BaseHTTPMiddleware), or checks websocket scopes through Starlette(max_body_size=...). Middleware-level pass-through for a non-http scope is tested."
+        },
+        {
+          "file": "tests/middleware/test_body_limit.py",
+          "line": 78,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "collect_http returns a tuple whose second element is always None and is never used, so it can return just the sent list."
+        }
+      ],
+      "attempts": 1,
+      "commit": "7781064829efb5408304bdbc725f237b83389d29",
+      "coverage": [
+        {
+          "criterion": "ACC1",
+          "line": 50,
+          "note": "A chunked body with no Content-Length is counted and rejected. test_no_limit_allows_any_body covers the unlimited case.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_chunked_body_without_content_length_is_counted"
+        },
+        {
+          "criterion": "ACC2",
+          "line": 151,
+          "note": "After the response has started, receive() returns http.disconnect and no second response or later body is sent. The 413 text and content type are asserted in test_body_over_limit.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_response_already_started_sends_no_second_response"
+        },
+        {
+          "criterion": "ACC3",
+          "line": 71,
+          "note": "The raw receive is called zero times and the response is 413. test_understated_content_length_is_enforced covers the understated header.",
+          "status": "covered",
+          "test": "tests/middleware/test_body_limit.py::test_declared_content_length_is_rejected_before_body_is_read"
+        },
+        {
+          "criterion": "ACC4",
+          "line": 79,
+          "note": "The application, router, mount and route limits are each enforced and the default is unlimited, in test_application_limit, test_router_limit, test_mount_limit, test_route_limit and test_default_is_unlimited.",
+          "status": "covered",
+          "test": "tests/test_body_limit.py::test_route_limit"
+        },
+        {
+          "criterion": "ACC5",
+          "line": 120,
+          "note": "Route, mount and router limits both raise and lower the outer limit. test_application_limit_applies_before_routing covers the application limit applying before routing.",
+          "status": "covered",
+          "test": "tests/test_body_limit.py::test_inner_limits_lower_outer_limit"
+        },
+        {
+          "criterion": "ACC6",
+          "line": 216,
+          "note": "The temp file is closed when the limit is crossed. The multipart framing overhead is covered by test_multipart_overhead_counts_toward_limit, and the generic interruption by test_multipart_closes_tempfile_on_any_interruption.",
+          "status": "covered",
+          "test": "tests/test_body_limit.py::test_multipart_temp_files_closed_when_limit_is_crossed"
+        }
+      ],
+      "review_rounds": 1,
+      "session_id": "18cf6baf-b88b-4688-ac57-35dacf43c7a4",
+      "status": "committed"
+    }
+  },
+  "updated_at": "2026-10-14T15:30:44+00:00",
+  "worktree": "C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\targets\\.aih\\20261014T152339Z\\worktrees\\20261014T152342Z-fc8ea6"
+}
