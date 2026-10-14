@@ -1,0 +1,98 @@
+{
+ "schema_version": 1,
+ "run_id": "20261014T151806Z-starlette-max-body-size-baseline-1",
+ "case": "starlette-max-body-size",
+ "arm": "baseline",
+ "n": 1,
+ "intent_version": 4,
+ "input_kind": "us",
+ "model": "claude-sonnet-5-5",
+ "started_at": "20261014T151806Z",
+ "fixture_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+ "wall_seconds": 313.7,
+ "files": [
+  "starlette/applications.py",
+  "starlette/formparsers.py",
+  "starlette/middleware/body_limit.py",
+  "starlette/routing.py",
+  "tests/middleware/test_body_limit.py"
+ ],
+ "shortstat": "5 files changed, 434 insertions(+), 3 deletions(-)",
+ "diff_lines": 550,
+ "judge": {
+  "ok": false,
+  "fail_to_pass_ok": false,
+  "pass_to_pass_ok": true,
+  "hidden_files": [
+   "tests.patch"
+  ],
+  "baseline_failures": [
+   "tests/test_config.py::test_missing_env_file_raises",
+   "tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[trio]"
+  ],
+  "new_failures": [],
+  "hidden": {
+   "target": "tests/middleware/test_body_limit.py tests/test_formparsers.py",
+   "exit_code": 1,
+   "passed": 116,
+   "failed": 8,
+   "errors": 0,
+   "skipped": 0,
+   "summary": "8 failed, 12 passed in 0.28s | 104 passed in 1.39s",
+   "output_tail": "ent_factory(app)\n    \n        response = client.post(\"/\", content=b\"12345\")\n        assert response.status_code == 200\n        assert response.content == b\"12345\"\n    \n        response = client.post(\"/\", content=b\"123456\")\n>       assert response.status_code == 413\nE       assert 500 == 413\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\n\ntests\\middleware\\test_body_limit.py:33: AssertionError\n__________ test_content_length_is_checked_without_reading_body[trio] __________\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_content_length_is_checked_without_reading_body(\n        test_client_factory: TestClientFactory,\n    ) -> None:\n        async def endpoint(request: Request) -> PlainTextResponse:\n            return PlainTextResponse(\"response\")\n    \n        app = Starlette(\n            routes=[Route(\"/\", endpoint, methods=[\"POST\"])],\n            max_body_size=5,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"123456\")\n>       assert response.status_code == 413\nE       assert 200 == 413\nE        +  where 200 = <Response [200 OK]>.status_code\n\ntests\\middleware\\test_body_limit.py:50: AssertionError\n____ test_received_bytes_are_counted_with_unreliable_content_length[trio] _____\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_received_bytes_are_counted_with_unreliable_content_length(test_client_factory: TestClientFactory) -> None:\n        app = RequestBodyLimitMiddleware(\n            Starlette(routes=[Route(\"/\", echo, methods=[\"POST\"])]),\n            max_body_size=5,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"123456\", headers={\"Content-Length\": \"1\"})\n>       assert response.status_code == 413\nE       assert 500 == 413\nE        +  where 500 = <Response [500 Internal Server Error]>.status_code\n\ntests\\middleware\\test_body_limit.py:81: AssertionError\n__________ test_stricter_route_rejects_body_read_by_middleware[trio] __________\n\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_stricter_route_rejects_body_read_by_middleware(test_client_factory: TestClientFactory) -> None:\n        async def read_body(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:\n            await request.body()\n            return await call_next(request)\n    \n        app = Starlette(\n            routes=[Route(\"/\", echo, methods=[\"POST\"], max_body_size=5)],\n            middleware=[Middleware(BaseHTTPMiddleware, dispatch=read_body)],\n            max_body_size=10,\n        )\n        client = test_client_factory(app)\n    \n        response = client.post(\"/\", content=b\"123456\")\n>       assert response.status_code == 413\nE       assert 200 == 413\nE        +  where 200 = <Response [200 OK]>.status_code\n\ntests\\middleware\\test_body_limit.py:157: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/middleware/test_body_limit.py::test_body_size_limit[asyncio] - a...\nFAILED tests/middleware/test_body_limit.py::test_content_length_is_checked_without_reading_body[asyncio]\nFAILED tests/middleware/test_body_limit.py::test_received_bytes_are_counted_with_unreliable_content_length[asyncio]\nFAILED tests/middleware/test_body_limit.py::test_stricter_route_rejects_body_read_by_middleware[asyncio]\nFAILED tests/middleware/test_body_limit.py::test_body_size_limit[trio] - asse...\nFAILED tests/middleware/test_body_limit.py::test_content_length_is_checked_without_reading_body[trio]\nFAILED tests/middleware/test_body_limit.py::test_received_bytes_are_counted_with_unreliable_content_length[trio]\nFAILED tests/middleware/test_body_limit.py::test_stricter_route_rejects_body_read_by_middleware[trio]\n8 failed, 12 passed in 0.28s\n........................................................................ [ 69%]\n................................                                         [100%]\n104 passed in 1.39s\n"
+  },
+  "suite": {
+   "target": "tests",
+   "exit_code": 1,
+   "passed": 907,
+   "failed": 10,
+   "errors": 0,
+   "skipped": 2,
+   "summary": "10 failed, 907 passed, 2 skipped, 2 xfailed in 6.65s",
+   "output_tail": "tml'\n\ntests\\test_staticfiles.py:541: OSError\n____________________ test_staticfiles_self_symlinks[trio] _____________________\n\ntmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-390/test_staticfiles_self_symlinks1')\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_staticfiles_self_symlinks(tmp_path: Path, test_client_factory: TestClientFactory) -> None:\n        statics_path = tmp_path / \"statics\"\n        statics_path.mkdir()\n    \n        source_file_path = statics_path / \"index.html\"\n        source_file_path.write_text(\"<h1>Hello</h1>\", encoding=\"utf-8\")\n    \n        statics_symlink_path = tmp_path / \"statics_symlink\"\n>       statics_symlink_path.symlink_to(statics_path)\n\ntests\\test_staticfiles.py:638: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\n\nself = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-390/test_staticfiles_self_symlinks1/statics_symlink')\ntarget = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-390/test_staticfiles_self_symlinks1/statics')\ntarget_is_directory = False\n\n    def symlink_to(self, target, target_is_directory=False):\n        \"\"\"\n        Make this path a symlink pointing to the target path.\n        Note the order of arguments (link, target) is the reverse of os.symlink.\n        \"\"\"\n        if not hasattr(os, \"symlink\"):\n            raise NotImplementedError(\"os.symlink() not available on this system\")\n>       os.symlink(target, self, target_is_directory)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-390\\\\test_staticfiles_self_symlinks1\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-390\\\\test_staticfiles_self_symlinks1\\\\statics_symlink'\n\n..\\..\\..\\..\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1386: OSError\n___________ test_staticfiles_disallows_path_traversal_with_symlinks ___________\n\ntmpdir = local('C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-390\\\\test_staticfiles_disallows_pat0')\n\n    def test_staticfiles_disallows_path_traversal_with_symlinks(tmpdir: Path) -> None:\n        statics_path = os.path.join(tmpdir, \"statics\")\n    \n        root_source_path = tempfile.mkdtemp()\n        source_path = os.path.join(root_source_path, \"statics\")\n        os.mkdir(source_path)\n    \n        source_file_path = os.path.join(root_source_path, \"index.html\")\n        with open(source_file_path, \"w\") as file:\n            file.write(\"<h1>Hello</h1>\")\n    \n>       os.symlink(source_path, statics_path)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\tmp1k4qhomj\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-390\\\\test_staticfiles_disallows_pat0\\\\statics'\n\ntests\\test_staticfiles.py:563: OSError\n=========================== short test summary info ===========================\nFAILED tests/test_config.py::test_missing_env_file_raises - re.error: incompl...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio] - OSEr...\nFAILED tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks\n10 failed, 907 passed, 2 skipped, 2 xfailed in 6.65s\n"
+  }
+ },
+ "arm_report": {
+  "exit": 1,
+  "usage": {
+   "cost_usd": 0.7971951999999998,
+   "num_turns": 41,
+   "duration_ms": 311737,
+   "duration_api_ms": 241560,
+   "input_tokens": 80,
+   "output_tokens": 28468,
+   "cache_read_input_tokens": 2474992,
+   "cache_creation_input_tokens": 66214,
+   "wall_ms": 313686
+  },
+  "sessions": 1,
+  "permission_denials": 11,
+  "transcript": "transcript.jsonl",
+  "result": "",
+  "stderr": ""
+ },
+ "usage": {
+  "cost_usd": 0.7971951999999998,
+  "num_turns": 41,
+  "duration_ms": 311737,
+  "duration_api_ms": 241560,
+  "input_tokens": 80,
+  "output_tokens": 28468,
+  "cache_read_input_tokens": 2474992,
+  "cache_creation_input_tokens": 66214,
+  "wall_ms": 313686
+ },
+ "sessions": 1
+}

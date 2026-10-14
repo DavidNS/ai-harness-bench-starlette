@@ -1,0 +1,550 @@
+diff --git a/starlette/applications.py b/starlette/applications.py
+index 3e1a781..3b46a58 100644
+--- a/starlette/applications.py
++++ b/starlette/applications.py
+@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
+ 
+ from starlette.datastructures import State, URLPath
+ from starlette.middleware import Middleware, _MiddlewareFactory
++from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+ from starlette.middleware.errors import ServerErrorMiddleware
+ from starlette.middleware.exceptions import ExceptionMiddleware
+ from starlette.requests import Request
+@@ -26,6 +27,7 @@ class Starlette:
+         middleware: Sequence[Middleware] | None = None,
+         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
+         lifespan: Lifespan[AppType] | None = None,
++        max_body_size: int | None = None,
+     ) -> None:
+         """Initializes the application.
+ 
+@@ -46,8 +48,12 @@ class Starlette:
+             lifespan: A lifespan context function, which can be used to perform
+                 startup and shutdown tasks. This is a newer style that replaces the
+                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
++            max_body_size: The maximum size in bytes of a request body. Larger requests get a
++                413 response. `None` (the default) means unlimited. A `max_body_size` set on a
++                `Router`, `Mount` or `Route` overrides this for that part of the application.
+         """
+         self.debug = debug
++        self.max_body_size = max_body_size
+         self.state = State()
+         self.router = Router(routes, lifespan=lifespan)
+         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
+@@ -65,8 +71,12 @@ class Starlette:
+             else:
+                 exception_handlers[key] = value
+ 
++        body_limit = (
++            [] if self.max_body_size is None else [Middleware(RequestBodyLimitMiddleware, max_body_size=self.max_body_size)]
++        )
+         middleware = (
+             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
++            + body_limit
+             + self.user_middleware
+             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
+         )
+diff --git a/starlette/formparsers.py b/starlette/formparsers.py
+index 3f3c598..8a5d3fc 100644
+--- a/starlette/formparsers.py
++++ b/starlette/formparsers.py
+@@ -288,10 +288,10 @@ class MultiPartParser:
+                 self._file_parts_to_write.clear()
+                 self._file_parts_to_finish.clear()
+             parser.finalize()
+-        except (MultiPartException, OSError) as exc:
+-            # Close all the files if there was an error.
++        except BaseException:
++            # Close all the files if the parse was interrupted for any reason.
+             for file in self._files_to_close_on_error:
+                 file.close()
+-            raise exc
++            raise
+ 
+         return FormData(self.items)
+diff --git a/starlette/middleware/body_limit.py b/starlette/middleware/body_limit.py
+new file mode 100644
+index 0000000..04cd98d
+--- /dev/null
++++ b/starlette/middleware/body_limit.py
+@@ -0,0 +1,109 @@
++from __future__ import annotations
++
++from starlette.datastructures import Headers
++from starlette.responses import PlainTextResponse
++from starlette.types import ASGIApp, Message, Receive, Scope, Send
++
++_SCOPE_KEY = "starlette.body_limit"
++
++
++class _BodyTooLarge(Exception):
++    pass
++
++
++def _is_body_too_large(exc: BaseException) -> bool:
++    # Task groups, as used by `BaseHTTPMiddleware`, wrap the error in an exception group.
++    group = getattr(exc, "exceptions", None)
++    if group is not None:
++        return bool(group) and all(_is_body_too_large(e) for e in group)
++    return isinstance(exc, _BodyTooLarge)
++
++
++class _BodyLimitState:
++    """Per-request state, shared by every body limit layer the request passes through."""
++
++    def __init__(self, limit: int | None) -> None:
++        self.limit = limit
++        self.received = 0
++        self.exceeded = False
++        self.length_checked = False
++
++
++class RequestBodyLimitMiddleware:
++    """
++    Reject HTTP requests whose body is larger than `max_body_size` bytes with a 413 response.
++
++    The limit counts the body bytes received from the ASGI server. A declared `Content-Length`
++    over the limit is rejected before any of the body is read, but the header is never trusted:
++    the received bytes are always counted.
++
++    When the middleware is nested, the innermost `max_body_size` that is not `None` wins, so an
++    inner layer can raise or lower the limit of an outer one.
++    """
++
++    def __init__(self, app: ASGIApp, max_body_size: int | None = None) -> None:
++        assert max_body_size is None or max_body_size >= 0, "'max_body_size' must not be negative."
++        self.app = app
++        self.max_body_size = max_body_size
++
++    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
++        if scope["type"] != "http" or self.max_body_size is None:
++            await self.app(scope, receive, send)
++            return
++
++        state: _BodyLimitState | None = scope.get(_SCOPE_KEY)
++        if state is not None:
++            # An outer layer already counts the body, only override its limit.
++            state.limit = self.max_body_size
++            state.length_checked = False
++        else:
++            state = scope[_SCOPE_KEY] = _BodyLimitState(self.max_body_size)
++            receive = self._wrap_receive(scope, receive, state)
++
++        response_started = False
++
++        async def send_wrapper(message: Message) -> None:
++            nonlocal response_started
++            if message["type"] == "http.response.start":
++                response_started = True
++            await send(message)
++
++        try:
++            await self.app(scope, receive, send_wrapper)
++        except Exception as exc:
++            if not _is_body_too_large(exc):
++                raise
++            if not response_started:
++                response = PlainTextResponse("Content Too Large", status_code=413)
++                await response(scope, receive, send_wrapper)
++
++    @staticmethod
++    def _wrap_receive(scope: Scope, receive: Receive, state: _BodyLimitState) -> Receive:
++        async def receive_wrapper() -> Message:
++            if state.exceeded:
++                raise _BodyTooLarge()
++
++            # Checked on the first read rather than on entry, so that a limit set by an
++            # inner route, mount or router is the one applied.
++            if not state.length_checked:
++                state.length_checked = True
++                content_length = Headers(scope=scope).get("content-length")
++                if (
++                    state.limit is not None
++                    and content_length is not None
++                    and content_length.isascii()
++                    and content_length.isdecimal()
++                    and int(content_length) > state.limit
++                ):
++                    state.exceeded = True
++                    raise _BodyTooLarge()
++
++            message = await receive()
++            if message["type"] == "http.request":
++                state.received += len(message.get("body", b""))
++                if state.limit is not None and state.received > state.limit:
++                    state.exceeded = True
++                    raise _BodyTooLarge()
++            return message
++
++        return receive_wrapper
+diff --git a/starlette/routing.py b/starlette/routing.py
+index a035d18..ccc98f5 100644
+--- a/starlette/routing.py
++++ b/starlette/routing.py
+@@ -20,6 +20,7 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
+ from starlette.datastructures import URL, Headers, URLPath
+ from starlette.exceptions import HTTPException, StarletteDeprecationWarning
+ from starlette.middleware import Middleware
++from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+ from starlette.requests import Request
+ from starlette.responses import PlainTextResponse, RedirectResponse, Response
+ from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
+@@ -203,6 +204,7 @@ class Route(BaseRoute):
+         name: str | None = None,
+         include_in_schema: bool = True,
+         middleware: Sequence[Middleware] | None = None,
++        max_body_size: int | None = None,
+     ) -> None:
+         assert path.startswith("/"), "Routed paths must start with '/'"
+         self.path = path
+@@ -226,6 +228,9 @@ class Route(BaseRoute):
+             for cls, args, kwargs in reversed(middleware):
+                 self.app = cls(self.app, *args, **kwargs)
+ 
++        if max_body_size is not None:
++            self.app = RequestBodyLimitMiddleware(self.app, max_body_size=max_body_size)
++
+         if methods is None:
+             self.methods = None
+         else:
+@@ -365,6 +370,7 @@ class Mount(BaseRoute):
+         name: str | None = None,
+         *,
+         middleware: Sequence[Middleware] | None = None,
++        max_body_size: int | None = None,
+     ) -> None:
+         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
+         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
+@@ -377,6 +383,8 @@ class Mount(BaseRoute):
+         if middleware is not None:
+             for cls, args, kwargs in reversed(middleware):
+                 self.app = cls(self.app, *args, **kwargs)
++        if max_body_size is not None:
++            self.app = RequestBodyLimitMiddleware(self.app, max_body_size=max_body_size)
+         self.name = name
+         self.path_regex, self.path_format, self.param_convertors = compile_path(self.path + "/{path:path}")
+ 
+@@ -574,6 +582,7 @@ class Router:
+         lifespan: Lifespan[Any] | None = None,
+         *,
+         middleware: Sequence[Middleware] | None = None,
++        max_body_size: int | None = None,
+     ) -> None:
+         self.routes = [] if routes is None else list(routes)
+         self.redirect_slashes = redirect_slashes
+@@ -602,6 +611,8 @@ class Router:
+         if middleware:
+             for cls, args, kwargs in reversed(middleware):
+                 self.middleware_stack = cls(self.middleware_stack, *args, **kwargs)
++        if max_body_size is not None:
++            self.middleware_stack = RequestBodyLimitMiddleware(self.middleware_stack, max_body_size=max_body_size)
+ 
+     async def not_found(self, scope: Scope, receive: Receive, send: Send) -> None:
+         if scope["type"] == "websocket":
+diff --git a/tests/middleware/test_body_limit.py b/tests/middleware/test_body_limit.py
+new file mode 100644
+index 0000000..8718299
+--- /dev/null
++++ b/tests/middleware/test_body_limit.py
+@@ -0,0 +1,301 @@
++from __future__ import annotations
++
++from collections.abc import AsyncGenerator
++from typing import Any
++
++import anyio
++import pytest
++
++from starlette.applications import Starlette
++from starlette.datastructures import Headers
++from starlette.middleware import Middleware
++from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
++from starlette.middleware.body_limit import RequestBodyLimitMiddleware
++from starlette.requests import Request
++from starlette.responses import PlainTextResponse, Response
++from starlette.routing import Mount, Route, Router
++from starlette.testclient import TestClient
++from starlette.types import ASGIApp, Message, Receive, Scope, Send
++from tests.types import TestClientFactory
++
++
++async def read_body(request: Request) -> Response:
++    body = await request.body()
++    return PlainTextResponse(str(len(body)))
++
++
++def test_app_limit(test_client_factory: TestClientFactory) -> None:
++    app = Starlette(routes=[Route("/", read_body, methods=["POST"])], max_body_size=10)
++    client = test_client_factory(app)
++    assert client.post("/", content=b"x" * 10).text == "10"
++    response = client.post("/", content=b"x" * 11)
++    assert response.status_code == 413
++    assert response.text == "Content Too Large"
++
++
++def test_no_limit_by_default(test_client_factory: TestClientFactory) -> None:
++    app = Starlette(routes=[Route("/", read_body, methods=["POST"])])
++    assert test_client_factory(app).post("/", content=b"x" * 100_000).text == "100000"
++
++
++def test_form_is_limited(test_client_factory: TestClientFactory) -> None:
++    async def endpoint(request: Request) -> Response:
++        await request.form()
++        return PlainTextResponse("ok")
++
++    app = Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=20)
++    client = test_client_factory(app)
++    assert client.post("/", data={"a": "b"}).text == "ok"
++    assert client.post("/", data={"a": "b" * 50}).status_code == 413
++
++
++def test_router_limit(test_client_factory: TestClientFactory) -> None:
++    app = Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=5)
++    client = test_client_factory(app)
++    assert client.post("/", content=b"x" * 5).status_code == 200
++    assert client.post("/", content=b"x" * 6).status_code == 413
++
++
++def test_mount_limit(test_client_factory: TestClientFactory) -> None:
++    app = Starlette(
++        routes=[
++            Route("/free", read_body, methods=["POST"]),
++            Mount("/m", routes=[Route("/", read_body, methods=["POST"])], max_body_size=5),
++        ]
++    )
++    client = test_client_factory(app)
++    assert client.post("/free", content=b"x" * 100).status_code == 200
++    assert client.post("/m/", content=b"x" * 5).status_code == 200
++    assert client.post("/m/", content=b"x" * 6).status_code == 413
++
++
++def test_route_limit(test_client_factory: TestClientFactory) -> None:
++    app = Starlette(
++        routes=[
++            Route("/limited", read_body, methods=["POST"], max_body_size=5),
++            Route("/free", read_body, methods=["POST"]),
++        ]
++    )
++    client = test_client_factory(app)
++    assert client.post("/limited", content=b"x" * 6).status_code == 413
++    assert client.post("/limited", content=b"x" * 5).status_code == 200
++    assert client.post("/free", content=b"x" * 600).status_code == 200
++
++
++def test_inner_limits_raise_and_lower_outer(test_client_factory: TestClientFactory) -> None:
++    app = Starlette(
++        routes=[
++            Route("/outer", read_body, methods=["POST"]),
++            Route("/raised", read_body, methods=["POST"], max_body_size=100),
++            Route("/lowered", read_body, methods=["POST"], max_body_size=3),
++            Mount("/m", routes=[Route("/raised", read_body, methods=["POST"], max_body_size=100)], max_body_size=20),
++            Mount("/r", app=Router(routes=[Route("/", read_body, methods=["POST"])], max_body_size=50)),
++        ],
++        max_body_size=10,
++    )
++    client = test_client_factory(app)
++    assert client.post("/outer", content=b"x" * 11).status_code == 413
++    # The declared length is above the app limit, but the route raises it.
++    assert client.post("/raised", content=b"x" * 100).status_code == 200
++    assert client.post("/raised", content=b"x" * 101).status_code == 413
++    assert client.post("/lowered", content=b"x" * 3).status_code == 200
++    assert client.post("/lowered", content=b"x" * 4).status_code == 413
++    assert client.post("/m/raised", content=b"x" * 100).status_code == 200
++    assert client.post("/m/raised", content=b"x" * 101).status_code == 413
++    assert client.post("/r/", content=b"x" * 50).status_code == 200
++    assert client.post("/r/", content=b"x" * 51).status_code == 413
++
++
++def test_standalone_middleware() -> None:
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        size = 0
++        while True:
++            message = await receive()
++            size += len(message.get("body", b""))
++            if not message.get("more_body", False):
++                break
++        await PlainTextResponse(str(size))(scope, receive, send)
++
++    client = TestClient(RequestBodyLimitMiddleware(asgi, max_body_size=4))
++    assert client.post("/", content=b"1234").text == "4"
++    response = client.post("/", content=b"12345")
++    assert (response.status_code, response.text) == (413, "Content Too Large")
++
++
++def test_middleware_passes_through_non_http_and_unlimited() -> None:
++    seen: list[str] = []
++
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        seen.append(scope["type"])
++
++    async def main() -> None:
++        await RequestBodyLimitMiddleware(asgi, max_body_size=1)({"type": "websocket"}, None, None)  # type: ignore
++        await RequestBodyLimitMiddleware(asgi)({"type": "http"}, None, None)  # type: ignore
++
++    anyio.run(main)
++    assert seen == ["websocket", "http"]
++
++
++def test_negative_limit_rejected() -> None:
++    with pytest.raises(AssertionError):
++        RequestBodyLimitMiddleware(Router(), max_body_size=-1)
++
++
++async def run_asgi(app: ASGIApp, headers: list[tuple[bytes, bytes]], chunks: list[bytes]) -> tuple[list[Message], int]:
++    sent: list[Message] = []
++    receives = 0
++    queue = list(chunks)
++
++    async def receive() -> Message:
++        nonlocal receives
++        receives += 1
++        body = queue.pop(0)
++        return {"type": "http.request", "body": body, "more_body": bool(queue)}
++
++    async def send(message: Message) -> None:
++        sent.append(message)
++
++    scope = {"type": "http", "method": "POST", "path": "/", "headers": headers, "query_string": b""}
++    await app(scope, receive, send)
++    return sent, receives
++
++
++def test_content_length_fail_fast() -> None:
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        await receive()
++
++    app = RequestBodyLimitMiddleware(asgi, max_body_size=5)
++    sent, receives = anyio.run(run_asgi, app, [(b"content-length", b"6")], [b"abc", b"def"])
++    assert sent[0]["status"] == 413
++    assert receives == 0
++
++
++def test_understated_and_missing_content_length() -> None:
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        while (await receive()).get("more_body"):
++            pass
++        await Response("ok")(scope, receive, send)
++
++    app = RequestBodyLimitMiddleware(asgi, max_body_size=5)
++    sent, _ = anyio.run(run_asgi, app, [(b"content-length", b"1")], [b"abc", b"def"])
++    assert sent[0]["status"] == 413
++    sent, _ = anyio.run(run_asgi, app, [], [b"abc", b"def"])
++    assert sent[0]["status"] == 413
++    sent, _ = anyio.run(run_asgi, app, [(b"content-length", b"junk")], [b"abc"])
++    assert sent[0]["status"] == 200
++
++
++def test_response_already_started() -> None:
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        await send({"type": "http.response.start", "status": 200, "headers": []})
++        while (await receive()).get("more_body"):
++            pass  # pragma: no cover
++        await send({"type": "http.response.body", "body": b"done"})  # pragma: no cover
++
++    app = RequestBodyLimitMiddleware(asgi, max_body_size=5)
++    sent, receives = anyio.run(run_asgi, app, [], [b"abc", b"def", b"ghi"])
++    assert [m["type"] for m in sent] == ["http.response.start"]
++    assert receives == 2
++
++
++def test_stream_stays_stopped() -> None:
++    results: list[str] = []
++
++    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
++        try:
++            await receive()
++            await receive()
++        except Exception:
++            results.append("first")
++        await receive()  # raises again
++
++    app = RequestBodyLimitMiddleware(asgi, max_body_size=5)
++    sent, receives = anyio.run(run_asgi, app, [], [b"abc", b"def", b"ghi"])
++    assert results == ["first"]
++    assert sent[0]["status"] == 413
++    assert receives == 2
++
++
++def test_multipart_counts_overhead(test_client_factory: TestClientFactory) -> None:
++    async def endpoint(request: Request) -> Response:
++        async with request.form() as form:
++            return PlainTextResponse(str(len(await form["f"].read())))  # type: ignore[union-attr]
++
++    app = Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=300)
++    client = test_client_factory(app)
++    assert client.post("/", files={"f": ("a.txt", b"x" * 100)}).text == "100"
++    # The file data alone is under the limit, the multipart envelope pushes it over.
++    response = client.post("/", files={"f": ("a.txt", b"x" * 290)})
++    assert response.status_code == 413
++
++
++@pytest.mark.anyio
++async def test_multipart_temp_files_closed_on_interruption(monkeypatch: pytest.MonkeyPatch) -> None:
++    from starlette import formparsers
++
++    created: list[Any] = []
++    original = formparsers.SpooledTemporaryFile
++
++    def tracking(*args: Any, **kwargs: Any) -> Any:
++        f = original(*args, **kwargs)
++        created.append(f)
++        return f
++
++    monkeypatch.setattr(formparsers, "SpooledTemporaryFile", tracking)
++
++    body = b'--b\r\nContent-Disposition: form-data; name="f"; filename="a.txt"\r\n\r\n' + b"x" * 20
++
++    class Interrupted(BaseException):
++        pass
++
++    async def stream() -> AsyncGenerator[bytes, None]:
++        yield body
++        raise Interrupted()
++
++    headers = Headers({"content-type": "multipart/form-data; boundary=b"})
++    with pytest.raises(Interrupted):
++        await formparsers.MultiPartParser(headers, stream()).parse()
++    assert len(created) == 1
++    assert created[0].closed
++
++
++def test_multipart_temp_files_closed_on_body_limit(monkeypatch: pytest.MonkeyPatch) -> None:
++    from starlette import formparsers
++
++    created: list[Any] = []
++    original = formparsers.SpooledTemporaryFile
++
++    def tracking(*args: Any, **kwargs: Any) -> Any:
++        f = original(*args, **kwargs)
++        created.append(f)
++        return f
++
++    monkeypatch.setattr(formparsers, "SpooledTemporaryFile", tracking)
++
++    async def endpoint(request: Request) -> Response:
++        await request.form()
++        return PlainTextResponse("ok")  # pragma: no cover
++
++    app = Starlette(routes=[Route("/", endpoint, methods=["POST"])], max_body_size=200)
++    # No Content-Length is sent, so the limit is hit while the body is being parsed.
++    body = b'--b
++Content-Disposition: form-data; name="f"; filename="a.txt"
++
++' + b"x" * 500
++    headers = [(b"content-type", b"multipart/form-data; boundary=b")]
++    sent, _ = anyio.run(run_asgi, app, headers, [body[:100], body[100:300], body[300:]])
++    assert sent[0]["status"] == 413
++    assert len(created) == 1
++    assert created[0].closed
++
++
++def test_limit_applies_to_body_read_by_user_middleware(test_client_factory: TestClientFactory) -> None:
++    async def dispatch(request: Request, call_next: RequestResponseEndpoint) -> Response:
++        return await call_next(request)
++
++    app = Starlette(
++        routes=[Route("/", read_body, methods=["POST"])],
++        middleware=[Middleware(BaseHTTPMiddleware, dispatch=dispatch)],
++        max_body_size=4,
++    )
++    assert test_client_factory(app).post("/", content=b"12345").status_code == 413
