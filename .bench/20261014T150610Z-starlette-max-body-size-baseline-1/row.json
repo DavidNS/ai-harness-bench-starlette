@@ -1,0 +1,99 @@
+{
+ "schema_version": 1,
+ "run_id": "20261014T150610Z-starlette-max-body-size-baseline-1",
+ "case": "starlette-max-body-size",
+ "arm": "baseline",
+ "n": 1,
+ "intent_version": 3,
+ "input_kind": "us",
+ "model": "claude-sonnet-5-5",
+ "started_at": "20261014T150610Z",
+ "fixture_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+ "wall_seconds": 271.4,
+ "files": [
+  "docs/middleware.md",
+  "starlette/applications.py",
+  "starlette/formparsers.py",
+  "starlette/middleware/bodylimit.py",
+  "starlette/routing.py",
+  "tests/test_body_limit.py"
+ ],
+ "shortstat": "6 files changed, 442 insertions(+), 4 deletions(-)",
+ "diff_lines": 586,
+ "judge": {
+  "ok": false,
+  "fail_to_pass_ok": false,
+  "pass_to_pass_ok": true,
+  "hidden_files": [
+   "tests.patch"
+  ],
+  "baseline_failures": [
+   "tests/test_config.py::test_missing_env_file_raises",
+   "tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_relative_directory_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[asyncio]",
+   "tests/test_staticfiles.py::test_staticfiles_with_package[trio]"
+  ],
+  "new_failures": [],
+  "hidden": {
+   "target": "tests/middleware/test_body_limit.py tests/test_formparsers.py",
+   "exit_code": 2,
+   "passed": 104,
+   "failed": 0,
+   "errors": 1,
+   "skipped": 0,
+   "summary": "1 error in 0.22s | 104 passed in 1.50s",
+   "output_tail": "\n=================================== ERRORS ====================================\n____________ ERROR collecting tests/middleware/test_body_limit.py _____________\nImportError while importing test module 'C:\\Users\\david\\git\\ai-harness-e2e-benchmak\\targets\\20261014T150610Z-starlette-max-body-size-baseline-1\\tests\\middleware\\test_body_limit.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n..\\..\\..\\..\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\importlib\\__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests\\middleware\\test_body_limit.py:10: in <module>\n    from starlette.middleware.body_limit import RequestBodyLimitMiddleware\nE   ModuleNotFoundError: No module named 'starlette.middleware.body_limit'\n=========================== short test summary info ===========================\nERROR tests/middleware/test_body_limit.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.22s\n........................................................................ [ 69%]\n................................                                         [100%]\n104 passed in 1.50s\n"
+  },
+  "suite": {
+   "target": "tests",
+   "exit_code": 1,
+   "passed": 939,
+   "failed": 10,
+   "errors": 0,
+   "skipped": 2,
+   "summary": "10 failed, 939 passed, 2 skipped, 2 xfailed in 7.29s",
+   "output_tail": "tml'\n\ntests\\test_staticfiles.py:541: OSError\n____________________ test_staticfiles_self_symlinks[trio] _____________________\n\ntmp_path = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-377/test_staticfiles_self_symlinks1')\ntest_client_factory = functools.partial(<class 'starlette.testclient.TestClient'>, backend='trio', backend_options={})\n\n    def test_staticfiles_self_symlinks(tmp_path: Path, test_client_factory: TestClientFactory) -> None:\n        statics_path = tmp_path / \"statics\"\n        statics_path.mkdir()\n    \n        source_file_path = statics_path / \"index.html\"\n        source_file_path.write_text(\"<h1>Hello</h1>\", encoding=\"utf-8\")\n    \n        statics_symlink_path = tmp_path / \"statics_symlink\"\n>       statics_symlink_path.symlink_to(statics_path)\n\ntests\\test_staticfiles.py:638: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\n\nself = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-377/test_staticfiles_self_symlinks1/statics_symlink')\ntarget = WindowsPath('C:/Users/david/AppData/Local/Temp/pytest-of-david/pytest-377/test_staticfiles_self_symlinks1/statics')\ntarget_is_directory = False\n\n    def symlink_to(self, target, target_is_directory=False):\n        \"\"\"\n        Make this path a symlink pointing to the target path.\n        Note the order of arguments (link, target) is the reverse of os.symlink.\n        \"\"\"\n        if not hasattr(os, \"symlink\"):\n            raise NotImplementedError(\"os.symlink() not available on this system\")\n>       os.symlink(target, self, target_is_directory)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-377\\\\test_staticfiles_self_symlinks1\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-377\\\\test_staticfiles_self_symlinks1\\\\statics_symlink'\n\n..\\..\\..\\..\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1386: OSError\n___________ test_staticfiles_disallows_path_traversal_with_symlinks ___________\n\ntmpdir = local('C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-377\\\\test_staticfiles_disallows_pat0')\n\n    def test_staticfiles_disallows_path_traversal_with_symlinks(tmpdir: Path) -> None:\n        statics_path = os.path.join(tmpdir, \"statics\")\n    \n        root_source_path = tempfile.mkdtemp()\n        source_path = os.path.join(root_source_path, \"statics\")\n        os.mkdir(source_path)\n    \n        source_file_path = os.path.join(root_source_path, \"index.html\")\n        with open(source_file_path, \"w\") as file:\n            file.write(\"<h1>Hello</h1>\")\n    \n>       os.symlink(source_path, statics_path)\nE       OSError: [WinError 1314] El cliente no dispone de un privilegio requerido: 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\tmpj7vfrecx\\\\statics' -> 'C:\\\\Users\\\\david\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-david\\\\pytest-377\\\\test_staticfiles_disallows_pat0\\\\statics'\n\ntests\\test_staticfiles.py:563: OSError\n=========================== short test summary info ===========================\nFAILED tests/test_config.py::test_missing_env_file_raises - re.error: incompl...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[asyncio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[asyncio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlinks[trio] - O...\nFAILED tests/test_staticfiles.py::test_staticfiles_follows_symlink_directories[trio]\nFAILED tests/test_staticfiles.py::test_staticfiles_self_symlinks[trio] - OSEr...\nFAILED tests/test_staticfiles.py::test_staticfiles_disallows_path_traversal_with_symlinks\n10 failed, 939 passed, 2 skipped, 2 xfailed in 7.29s\n"
+  }
+ },
+ "arm_report": {
+  "exit": 0,
+  "usage": {
+   "cost_usd": 0.6956772999999999,
+   "num_turns": 28,
+   "duration_ms": 269541,
+   "duration_api_ms": 221780,
+   "input_tokens": 44,
+   "output_tokens": 29148,
+   "cache_read_input_tokens": 1357773,
+   "cache_creation_input_tokens": 67083,
+   "wall_ms": 271391
+  },
+  "sessions": 1,
+  "permission_denials": 8,
+  "transcript": "transcript.jsonl",
+  "result": "`max_body_size` is now an option on `Starlette`, `Router`, `Mount` and `Route`, and `RequestBodyLimitMiddleware` is available standalone. The full suite shows 10 failures, all Windows-only: symlink privileges and permissions in `test_staticfiles.py`, and a path regex in `test_config.py::test_missing_env_file_raises`. I didn't re-run the suite without my changes to confirm that. All the new tests in `tests/test_body_limit.py` pass. I couldn't run `ruff` because the sandbox blocked it, so lint and formatting are unchecked.\n\n## What changed\n\n- **Middleware:** it lives in `starlette/middleware/bodylimit.py`.\n  - It counts the bytes it actually receives, and rejects with a plain-text `413 Content Too Large`.\n  - A `Content-Length` over the limit is rejected before the app is called. A missing or understated header doesn't let a bigger body through.\n  - If the app has already started its response when the limit is crossed, no second response is sent and `receive()` raises to stop the body stream.\n- **Where it sits in the stack:**\n  - `Starlette(max_body_size=\u2026)` puts the middleware just inside `ServerErrorMiddleware` and outside your own middleware.\n  - `Router`, `Mount` and `Route` wrap themselves, outside any middleware you give them.\n- **Inner limits:** all layers share one per-request counter, so an inner limit replaces the outer one. Because it can raise the limit, an app-level `Content-Length` check is deferred to the first body read whenever something inside the app sets its",
+  "stderr": ""
+ },
+ "usage": {
+  "cost_usd": 0.6956772999999999,
+  "num_turns": 28,
+  "duration_ms": 269541,
+  "duration_api_ms": 221780,
+  "input_tokens": 44,
+  "output_tokens": 29148,
+  "cache_read_input_tokens": 1357773,
+  "cache_creation_input_tokens": 67083,
+  "wall_ms": 271391
+ },
+ "sessions": 1
+}

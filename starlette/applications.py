@@ -5,11 +5,12 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.bodylimit import RequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.routing import BaseRoute, Router
+from starlette.routing import BaseRoute, Router, declares_body_limit
 from starlette.types import ASGIApp, ExceptionHandler, Lifespan, Receive, Scope, Send
 
 AppType = TypeVar("AppType", bound="Starlette")
@@ -26,6 +27,7 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,8 +48,13 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get
+                a `413 Content Too Large` response. `None` (the default) means no limit.
+                A limit set on a `Router`, `Mount` or `Route` replaces this one for that part
+                of the application.
         """
         self.debug = debug
+        self.max_body_size = max_body_size
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
@@ -65,8 +72,20 @@ class Starlette:
             else:
                 exception_handlers[key] = value
 
+        body_limit: list[Middleware] = []
+        if self.max_body_size is not None:
+            # A limit declared further down may raise this one, so don't reject on
+            # `Content-Length` alone before the route has been picked.
+            defer = declares_body_limit(self.router) or any(
+                m.cls is RequestBodyLimitMiddleware for m in self.user_middleware
+            )
+            body_limit.append(
+                Middleware(RequestBodyLimitMiddleware, max_body_size=self.max_body_size, _defer_declared_length=defer)
+            )
+
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + body_limit
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )

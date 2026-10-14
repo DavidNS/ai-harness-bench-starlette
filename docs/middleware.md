@@ -180,6 +180,45 @@ app = Starlette(routes=routes, middleware=middleware)
 
 There are no configuration options for this middleware class.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than `max_body_size` bytes with a plain-text
+`413 Content Too Large` response, so that a client cannot make the application buffer an
+arbitrarily large body (for example with `await request.json()`).
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.bodylimit import RequestBodyLimitMiddleware
+
+app = Starlette(routes=routes, middleware=[Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024)])
+```
+
+The middleware works with any ASGI application. Within Starlette you will usually use the
+`max_body_size` option instead, which is available on `Starlette`, `Router`, `Mount` and `Route`.
+It defaults to `None`, meaning no limit.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/", homepage, methods=["POST"]),
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=10 * 1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+* The limit on `Starlette` applies before routing. A limit set on an inner `Router`, `Mount`
+  or `Route` replaces the outer one for that part of the tree, so it can either raise or lower it.
+* The limit counts the body bytes actually received from the ASGI server, including multipart
+  file data and encoding overhead. `Content-Length` is only used to fail fast: a declared length
+  over the limit is rejected before the body is read, and a missing or understated header does not
+  let a larger body through.
+* If the application has already started its response when the limit is crossed, no second
+  response is sent and the body stream is stopped by raising an exception from `receive()`.
+* Interrupted multipart parsing, including by the limit, closes its temporary files.
+
 ## TrustedHostMiddleware
 
 Enforces that all incoming requests have a correctly set `Host` header, in order

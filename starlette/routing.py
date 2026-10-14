@@ -20,6 +20,7 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
 from starlette.datastructures import URL, Headers, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
+from starlette.middleware.bodylimit import RequestBodyLimitMiddleware
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
@@ -203,11 +204,13 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
+        self.max_body_size = max_body_size
         self.include_in_schema = include_in_schema
 
         endpoint_handler = endpoint
@@ -225,6 +228,9 @@ class Route(BaseRoute):
         if middleware is not None:
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
+
+        if max_body_size is not None:
+            self.app = RequestBodyLimitMiddleware(self.app, max_body_size)
 
         if methods is None:
             self.methods = None
@@ -365,6 +371,7 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
@@ -377,6 +384,9 @@ class Mount(BaseRoute):
         if middleware is not None:
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
+        if max_body_size is not None:
+            self.app = RequestBodyLimitMiddleware(self.app, max_body_size)
+        self.max_body_size = max_body_size
         self.name = name
         self.path_regex, self.path_format, self.param_convertors = compile_path(self.path + "/{path:path}")
 
@@ -563,6 +573,17 @@ class _DefaultLifespan:
         return self
 
 
+def declares_body_limit(app: Any, _seen: set[int] | None = None) -> bool:
+    """Whether `app`, or anything routed below it, sets its own `max_body_size`."""
+    seen = set() if _seen is None else _seen
+    if id(app) in seen:  # pragma: no cover
+        return False
+    seen.add(id(app))
+    if getattr(app, "max_body_size", None) is not None:
+        return True
+    return any(declares_body_limit(route, seen) for route in getattr(app, "routes", None) or [])
+
+
 class Router:
     def __init__(
         self,
@@ -574,6 +595,7 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
@@ -602,6 +624,9 @@ class Router:
         if middleware:
             for cls, args, kwargs in reversed(middleware):
                 self.middleware_stack = cls(self.middleware_stack, *args, **kwargs)
+        if max_body_size is not None:
+            self.middleware_stack = RequestBodyLimitMiddleware(self.middleware_stack, max_body_size)
+        self.max_body_size = max_body_size
 
     async def not_found(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "websocket":
