@@ -26,6 +26,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,10 +48,13 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get
+                a 413 response. `None` means unlimited. A limit set on a router, mount or
+                route overrides this one for that part of the application.
         """
         self.debug = debug
         self.state = State()
-        self.router = Router(routes, lifespan=lifespan)
+        self.router = Router(routes, lifespan=lifespan, max_body_size=max_body_size)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
         self.middleware_stack: ASGIApp | None = None

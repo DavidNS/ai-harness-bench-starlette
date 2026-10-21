@@ -249,6 +249,51 @@ intact, or responses with a `Content-Type` in `exclude_content_types` - by defau
 avoid compressing server-sent events, and already-compressed formats, where compression wastes CPU for no
 gain.
 
+## RequestBodyLimitMiddleware
+
+Rejects requests whose body is larger than `max_body_size` bytes with a `413` response and the plain-text body
+`Content Too Large`. It works with any ASGI application, and is what the `max_body_size` option of `Starlette`,
+`Router`, `Mount` and `Route` uses.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+
+routes = ...
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=10 * 1024 * 1024)
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+```
+
+The following arguments are supported:
+
+* `max_body_size` - The maximum number of body bytes. Defaults to `None`, which means unlimited.
+
+The limit counts the body bytes actually received from the server, including multipart file data and encoding
+overhead. A `Content-Length` header over the limit gets a `413` without the body being read, even if the
+application never reads it. A missing or understated `Content-Length` does not let a larger body through.
+
+If the application has already started its response when the limit is crossed, no second response is sent and the
+body stream is stopped. Requests without a body, websockets and lifespan are not affected.
+
+When `RequestBodyLimitMiddleware` is nested, the innermost limit applies, so an inner limit can raise or lower the
+outer one. The same holds for `max_body_size` on `Starlette`, `Router`, `Mount` and `Route`:
+
+```python
+app = Starlette(
+    routes=[
+        Route("/message", message),
+        Route("/upload", upload, methods=["POST"], max_body_size=100 * 1024 * 1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
 ## BaseHTTPMiddleware
 
 An abstract class that allows you to write ASGI middleware against a request/response

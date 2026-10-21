@@ -122,6 +122,10 @@ async with request.form(max_files=1000, max_fields=1000, max_part_size=1024*1024
     ...
 ```
 
+!!! tip
+    To limit the total size of the request body, use `max_body_size`, see
+    [`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 !!! info
     These limits are for security reasons, allowing an unlimited number of fields or files could lead to a denial of service attack by consuming a lot of CPU and memory parsing too many empty fields.
 
