@@ -331,3 +331,16 @@ The `endpoint` argument can be one of:
 
 * An async function, which accepts a single `websocket` argument.
 * A class that implements the ASGI interface, such as Starlette's [WebSocketEndpoint](endpoints.md#websocketendpoint).
+
+## Limiting the request body size
+
+`Router`, `Mount` and `Route` (and the `Starlette` application) accept a `max_body_size` keyword argument, in
+bytes. Requests with a larger body get a `413` response. An inner limit overrides the outer one, so it can raise
+or lower it. See [`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware) for details.
+
+```python
+routes = [
+    Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+    Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+]
+```
