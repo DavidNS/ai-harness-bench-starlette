@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import _DeferredRequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -19,6 +20,8 @@ P = ParamSpec("P")
 class Starlette:
     """Creates an Starlette application."""
 
+    _settles_body_limit = True
+
     def __init__(
         self: AppType,
         debug: bool = False,
@@ -26,6 +29,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,9 +51,13 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get
+                a 413 response. `None` (the default) means no limit. A `max_body_size` set on
+                a `Router`, `Mount` or `Route` overrides this one for that part of the app.
         """
         self.debug = debug
         self.state = State()
+        self.max_body_size = max_body_size
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
@@ -67,6 +76,11 @@ class Starlette:
 
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + (
+                [Middleware(_DeferredRequestBodyLimitMiddleware, max_body_size=self.max_body_size)]
+                if self.max_body_size is not None
+                else []
+            )
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )

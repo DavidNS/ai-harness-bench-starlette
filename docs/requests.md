@@ -109,6 +109,39 @@ In some cases such as long-polling, or streaming responses you might need to
 determine if the client has dropped the connection. You can determine this
 state with `disconnected = await request.is_disconnected()`.
 
+#### Limiting the request body size
+
+By default there is no limit on the size of a request body, so `await request.json()` will buffer
+whatever the client sends. Set `max_body_size` (in bytes) to reject larger requests with a `413`
+response (`Content Too Large`):
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route, Router
+
+app = Starlette(
+    routes=[
+        Route('/upload', upload, methods=['POST'], max_body_size=50 * 1024 * 1024),
+        Mount('/api', routes=api_routes, max_body_size=1024),
+        Route('/', homepage),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+`max_body_size` is accepted by `Starlette`, `Router`, `Mount` and `Route`. The limit of the application
+applies before routing, and a limit set on an inner router, mount or route overrides the outer one for that
+part of the tree, so it can both raise and lower the application-wide limit. A route that does not match the
+request's method, and a request that matches no route, are subject to the application's limit.
+
+The bytes received from the server are counted, including multipart file data and encoding overhead.
+A declared `Content-Length` over the limit is rejected as soon as the limit that applies is known (after
+routing), and a body that is larger than declared is stopped once it crosses the limit. If the response has
+already started, no second response is sent. Multipart temporary files are closed when parsing is interrupted.
+
+The same behavior is available for any ASGI application as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 #### Request Files
 
 Request files are normally sent as multipart form data (`multipart/form-data`).
