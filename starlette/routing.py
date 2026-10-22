@@ -20,6 +20,7 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
 from starlette.datastructures import URL, Headers, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware, check_body_limit, validate_max_body_size
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
@@ -164,6 +165,9 @@ def compile_path(
 
 
 class BaseRoute:
+    # Routes that apply or check the body limit themselves when handling a request.
+    _handles_body_limit = False
+
     def matches(self, scope: Scope) -> tuple[Match, Scope]:
         raise NotImplementedError()  # pragma: no cover
 
@@ -194,6 +198,8 @@ class BaseRoute:
 
 
 class Route(BaseRoute):
+    _handles_body_limit = True
+
     def __init__(
         self,
         path: str,
@@ -203,8 +209,10 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
+        validate_max_body_size(max_body_size)
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
@@ -225,6 +233,10 @@ class Route(BaseRoute):
         if middleware is not None:
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
+
+        self.max_body_size = max_body_size
+        if max_body_size is not None:
+            self.app = RequestBodyLimitMiddleware(self.app, max_body_size=max_body_size)
 
         if methods is None:
             self.methods = None
@@ -273,6 +285,8 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
+            if self.max_body_size is None:
+                check_body_limit(scope)
             await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -357,6 +371,8 @@ class WebSocketRoute(BaseRoute):
 
 
 class Mount(BaseRoute):
+    _handles_body_limit = True
+
     def __init__(
         self,
         path: str,
@@ -365,7 +381,9 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        validate_max_body_size(max_body_size)
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
@@ -377,6 +395,13 @@ class Mount(BaseRoute):
         if middleware is not None:
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
+        # A mounted router or application settles its own body limit once it has routed the request.
+        self._settles_body_limit = getattr(self._base_app, "_settles_body_limit", False)
+        self.max_body_size = max_body_size
+        if max_body_size is not None:
+            self.app = RequestBodyLimitMiddleware(
+                self.app, max_body_size=max_body_size, _check_on_entry=not self._settles_body_limit
+            )
         self.name = name
         self.path_regex, self.path_format, self.param_convertors = compile_path(self.path + "/{path:path}")
 
@@ -445,6 +470,8 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self.max_body_size is None and not self._settles_body_limit:
+            check_body_limit(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -457,6 +484,8 @@ class Mount(BaseRoute):
 
 
 class Host(BaseRoute):
+    _handles_body_limit = True
+
     def __init__(self, host: str, app: ASGIApp, name: str | None = None) -> None:
         assert not host.startswith("/"), "Host must not start with '/'"
         self.host = host
@@ -507,6 +536,8 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not getattr(self.app, "_settles_body_limit", False):
+            check_body_limit(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -564,6 +595,8 @@ class _DefaultLifespan:
 
 
 class Router:
+    _settles_body_limit = True
+
     def __init__(
         self,
         routes: Sequence[BaseRoute] | None = None,
@@ -574,7 +607,9 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        validate_max_body_size(max_body_size)
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -602,6 +637,11 @@ class Router:
         if middleware:
             for cls, args, kwargs in reversed(middleware):
                 self.middleware_stack = cls(self.middleware_stack, *args, **kwargs)
+        if max_body_size is not None:
+            # The router checks the declared length itself, once it has routed the request.
+            self.middleware_stack = RequestBodyLimitMiddleware(
+                self.middleware_stack, max_body_size=max_body_size, _check_on_entry=False
+            )
 
     async def not_found(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "websocket":
@@ -677,6 +717,8 @@ class Router:
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
+                if not route._handles_body_limit:
+                    check_body_limit(scope)
                 await route.handle(scope, receive, send)
                 return
             elif match == Match.PARTIAL and partial is None:
@@ -688,8 +730,11 @@ class Router:
             # able to handle the request, but is not a preferred option.
             # We use this in particular to deal with "405 Method Not Allowed".
             scope.update(partial_scope)
+            check_body_limit(scope)
             await partial.handle(scope, receive, send)
             return
+
+        check_body_limit(scope)
 
         route_path = get_route_path(scope)
         if scope["type"] == "http" and self.redirect_slashes and route_path != "/":

@@ -208,6 +208,61 @@ hostname either use `allowed_hosts=["*"]` or omit the middleware.
 
 If an incoming request does not validate correctly then a 400 response will be sent.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than a given size with a `413 Content Too Large`
+plain-text response. It works with any ASGI application, not only a Starlette one.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+routes = ...
+
+app = RequestBodyLimitMiddleware(Starlette(routes=routes), max_body_size=1024 * 1024)
+```
+
+The following arguments are supported:
+
+* `max_body_size` - The maximum number of body bytes, as an integer.
+
+The limit counts the body bytes actually received from the ASGI server (multipart file data and
+encoding overhead included). A declared `Content-Length` over the limit is rejected immediately,
+before the application runs, but a missing or understated header does not let a larger body through:
+the request is stopped as soon as it crosses the limit. If the application has already started its
+response, no second response is sent and the body stream is stopped. Requests without a body,
+websockets and lifespan are unaffected.
+
+Starlette applications can use the `max_body_size` option instead of the middleware, see below.
+
+### Limits in a Starlette application
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` keyword argument. The default
+`None` means no limit.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+        Route("/echo", echo, methods=["POST"]),  # inherits the application limit
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The application limit applies before routing, ahead of any middleware. A limit set on an inner
+router, mount or route replaces the outer one for that part of the tree, so it can raise or lower it.
+Passing `None` on an inner component means "no override", not "unlimited".
+
+A declared `Content-Length` over the limit is rejected once routing has decided which limit applies:
+the matched route's, otherwise the enclosing one. Requests that match no route or no method are
+checked against the limit of the router that failed to match them, so they get a 413 rather than
+a 404 or 405.
+
 ## GZipMiddleware
 
 Handles GZip responses for any request that includes `"gzip"` in the `Accept-Encoding` header.
