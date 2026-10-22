@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________________ test_mount_cl_raise_and_lower _________________________
+
+    def test_mount_cl_raise_and_lower():
+>       inner = Router(routes=[Route("/", ep, methods=["POST"], max_body_size=100)])
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Route.__init__() got an unexpected keyword argument 'max_body_size'
+
+tests/benchjudge/test_aih_probe_bl.py:15: TypeError
+=========================== short test summary info ============================
+FAILED tests/benchjudge/test_aih_probe_bl.py::test_mount_cl_raise_and_lower
+1 failed in 0.04s

@@ -1,0 +1,127 @@
+{
+  "coverage": [
+    {
+      "criterion": "ACC1",
+      "line": 67,
+      "note": "1MB accepted by default; kwargs exercised throughout",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n\ndef test_nested_mount_cl():\n    app = Starlette(routes=[Mount(\"/a\", routes=[Mount(\"/b\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=100)])], max_body_size=5)\n    assert TestClient(app).post(\"/a/b/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    app = Starlette(routes=[Mount(\"/a\", routes=[Mount(\"/b\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=100)])\n    assert TestClient(app).post(\"/a/b/\", content=b\"x\" * 50).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_default_is_unlimited"
+    },
+    {
+      "criterion": "ACC2",
+      "line": 161,
+      "note": "raise/lower/inherit for mount, plus route tests",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n\ndef test_nested_mount_cl():\n    app = Starlette(routes=[Mount(\"/a\", routes=[Mount(\"/b\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=100)])], max_body_size=5)\n    assert TestClient(app).post(\"/a/b/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    app = Starlette(routes=[Mount(\"/a\", routes=[Mount(\"/b\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=100)])\n    assert TestClient(app).post(\"/a/b/\", content=b\"x\" * 50).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_mount_router_limits"
+    },
+    {
+      "criterion": "ACC3",
+      "line": 283,
+      "note": "boundary and 413 body/content-type asserted",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_middleware_plain_asgi_app"
+    },
+    {
+      "criterion": "ACC4",
+      "line": 93,
+      "note": "absent and understated CL; multipart exact-size boundary test too",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_app_limit_without_content_length_or_understated"
+    },
+    {
+      "criterion": "ACC5",
+      "line": 227,
+      "note": "route, no-route, 405, middleware entry covered; my probe added mount/router cases",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_content_length_fail_fast_no_route_and_no_method"
+    },
+    {
+      "criterion": "ACC6",
+      "line": 340,
+      "note": "single response start and http.disconnect asserted",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_response_started_then_limit_crossed_disconnects"
+    },
+    {
+      "criterion": "ACC7",
+      "line": 392,
+      "note": "file closed asserted on limit crossing and on arbitrary exception",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_multipart_files_closed_on_body_limit"
+    },
+    {
+      "criterion": "ACC8",
+      "line": 116,
+      "note": "GET, websocket, lifespan with limit 1",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_websocket_and_lifespan_unaffected"
+    },
+    {
+      "criterion": "ACC10",
+      "line": 148,
+      "note": "tests exist for all listed areas",
+      "probe": {
+        "content": "import anyio\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import PlainTextResponse\nfrom starlette.routing import Mount, Route, Router\nfrom starlette.testclient import TestClient\n\nran = []\n\nasync def ep(request: Request):\n    ran.append(1)\n    return PlainTextResponse(str(len(await request.body())))\n\ndef test_mount_cl_raise_and_lower():\n    inner = Router(routes=[Route(\"/\", ep, methods=[\"POST\"], max_body_size=100)])\n    app = Starlette(routes=[Mount(\"/m\", app=inner), Mount(\"/n\", routes=[Route(\"/\", ep, methods=[\"POST\"])], max_body_size=5)], max_body_size=5)\n    c = TestClient(app)\n    assert c.post(\"/m/\", content=b\"x\" * 50).text == \"50\"\n    ran.clear()\n    assert c.post(\"/n/\", content=b\"x\" * 10).status_code == 413\n    assert ran == []\n",
+        "path": "tests/benchjudge/test_aih_probe_bl.py"
+      },
+      "status": "covered",
+      "test": "tests/benchjudge/test_body_limit.py::test_route_raises_app_limit"
+    }
+  ],
+  "findings": [
+    {
+      "file": "tests/benchjudge/test_body_limit.py",
+      "line": 0,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "No test combines a declared Content-Length with an inner Mount/Router limit that raises or lowers the app limit (only route-level fail-fast is tested)."
+    },
+    {
+      "file": "tests/benchjudge/test_body_limit.py",
+      "line": 340,
+      "pass": 2,
+      "severity": "advisory",
+      "text": "test_response_started_in_starlette_streaming asserts only `status in (200, 413)`, so it is a weak check of the already-started-response path inside Starlette."
+    },
+    {
+      "file": "starlette/routing.py",
+      "line": 456,
+      "pass": 4,
+      "severity": "advisory",
+      "text": "Mount.handle's getattr-based router sniffing to choose check_content_length is convoluted; a mounted Starlette/Router could always defer the check."
+    }
+  ],
+  "verdict": "approve"
+}

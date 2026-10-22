@@ -1,0 +1,62 @@
+{
+  "constraints": [
+    "Default None must keep today's unlimited behaviour.",
+    "The existing test suite must stay green.",
+    "Do not change unrelated behaviour."
+  ],
+  "intents": [
+    {
+      "id": "INTENT1",
+      "key": "max-body-size-option",
+      "text": "Add a `max_body_size` keyword option (default `None`, meaning unlimited as today) to `Starlette`, `Router`, `Mount` and `Route`."
+    },
+    {
+      "id": "INTENT2",
+      "key": "limit-precedence",
+      "text": "The application-level limit applies before routing, and a limit on an inner route, mount or router overrides the outer one for that part of the tree, whether it raises or lowers the outer limit."
+    },
+    {
+      "id": "INTENT3",
+      "key": "standalone-middleware",
+      "text": "Provide `RequestBodyLimitMiddleware(app, max_body_size=...)` in `starlette.middleware.body_limit`, working with any ASGI application and not only Starlette."
+    },
+    {
+      "id": "INTENT4",
+      "key": "count-received-bytes",
+      "text": "Enforce the limit on the body bytes actually received from the ASGI server (multipart file data and encoding overhead included), so an absent or understated Content-Length does not let an oversized body through."
+    },
+    {
+      "id": "INTENT5",
+      "key": "content-length-fail-fast",
+      "text": "Reject a declared Content-Length over the limit before any application code runs: in Starlette, once routing has settled the applicable limit (matched route's own, else the outer one, else the app's for no-route or no-method matches); in the standalone middleware, on entry."
+    },
+    {
+      "id": "INTENT6",
+      "key": "413-response",
+      "text": "A request exceeding the limit gets a 413 response with the plain-text body `Content Too Large`; if the application has already started its response, no second response is sent and the body stream is stopped."
+    },
+    {
+      "id": "INTENT7",
+      "key": "multipart-tempfile-cleanup",
+      "text": "Multipart parsing closes its temporary files whenever a parse is interrupted, including when the body limit is crossed."
+    },
+    {
+      "id": "INTENT8",
+      "key": "unaffected-traffic",
+      "text": "Requests without a body, websockets and lifespan are unaffected by the limit."
+    },
+    {
+      "id": "INTENT9",
+      "key": "docs",
+      "text": "Document the `max_body_size` option and `RequestBodyLimitMiddleware` in the project docs."
+    },
+    {
+      "id": "INTENT10",
+      "key": "tests",
+      "text": "Add tests covering the limit on app, router, mount and route (including an inner limit raising and lowering the outer one), the standalone middleware, Content-Length fail-fast, the multipart case and temp-file cleanup."
+    }
+  ],
+  "request": "Add configurable limits for the total HTTP request body size.\n\nToday any Starlette application can be taken down by a client that streams a huge body: nothing\nstops `await request.json()` from buffering gigabytes. We need a limit the application can set,\nwith a 413 response when a request exceeds it.\n\nRequirements:\n\n- A `max_body_size` keyword option on `Starlette`, `Router`, `Mount` and `Route`. Default `None`\n  keeps today's unlimited behaviour. The application-level limit applies before routing; a limit\n  set on an inner route, mount or router overrides the outer one for that part of the tree, so it\n  can raise or lower the application-wide limit.\n- The same behaviour as a standalone ASGI middleware, `RequestBodyLimitMiddleware(app,\n  max_body_size=...)`, importable from `starlette.middleware.body_limit` and usable with any ASGI\n  application, not only a Starlette one.\n- The limit counts the body bytes actually received from the ASGI server, multipart file data and\n  encoding overhead included. `Content-Length` is only a fail-fast check, and fail-fast means\n  before any application code runs: a declared length over the limit is rejected as soon as the\n  limit that applies is settled. Inside a Starlette application that is when routing has decided,\n  since an inner route, mount or router may still raise the limit: the matched route's own limit,\n  the outer one for a route without its own, and the application's for a request that matches no\n  route or no method. The standalone middleware has nothing below it that can change its limit, so\n  it rejects on entry. An absent or understated header does not let a body through. A request that\n  exceeds the limit gets a 413 response with the plain-text body `Content Too Large`; if the\n  application has already started its response, no second response is sent and the body stream is\n  stopped.\n- Multipart parsing closes its temporary files whenever a parse is interrupted, including when the\n  request crosses the body limit.\n- Requests without a body, websockets and lifespan are unaffected.\n- Document the option and the middleware.\n\nAdd tests for the limit on the application, router, mount and route (including an inner limit\nraising and lowering the outer one), the standalone middleware, the Content-Length fail-fast, the\nmultipart case and the temp-file cleanup. The existing suite must stay green. Do not change\nunrelated behaviour.",
+  "rounds": [],
+  "summary": ""
+}

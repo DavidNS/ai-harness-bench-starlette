@@ -1,0 +1,46 @@
+{
+  "criteria_notes": [
+    {
+      "criterion": "ACC1",
+      "note": "test_default_is_unlimited sends a 1MB body with no limit and it is accepted. The app, router, route and mount limit tests show each class accepts the option."
+    },
+    {
+      "criterion": "ACC2",
+      "note": "test_route_raises_app_limit, test_route_lowers_app_limit, test_mount_router_limits and test_inner_router_limit_overrides_outer_router cover raise, lower and inherit across route, mount and router."
+    },
+    {
+      "criterion": "ACC3",
+      "note": "test_middleware_plain_asgi_app wraps a plain ASGI app and checks the 413, the 'Content Too Large' body and the text/plain content type. A body at the limit passes."
+    },
+    {
+      "criterion": "ACC4",
+      "note": "test_app_limit_without_content_length_or_understated and test_middleware_counts_stream_without_header cover an absent or understated header. test_multipart_counted_in_full checks the limit against the exact multipart length."
+    },
+    {
+      "criterion": "ACC5",
+      "note": "test_content_length_fail_fast_route and test_middleware_content_length_rejects_on_entry check that no endpoint runs. test_content_length_fail_fast_uses_route_limit covers an inner route raising the limit. test_content_length_fail_fast_no_route_and_no_method covers the app limit for no-route and 405. test_content_length_redirect_uses_limit covers the redirect path, and test_mounted_starlette_inner_limit_raises covers a mounted app that raises the limit."
+    },
+    {
+      "criterion": "ACC6",
+      "note": "test_response_started_then_limit_crossed_disconnects checks one response start and http.disconnect on receive. test_swallowed_exception_does_not_send_second_response checks that a late response is dropped after the 413. test_response_started_in_starlette_streaming asserts a single response start, but the 413 can win the race there, so it accepts either 200 or 413."
+    },
+    {
+      "criterion": "ACC7",
+      "note": "test_multipart_files_closed_on_body_limit checks the temp file is closed when the limit is crossed. test_multipart_parser_closes_files_on_any_exception checks a RuntimeError mid-stream closes it."
+    },
+    {
+      "criterion": "ACC8",
+      "note": "test_get_without_body_unaffected, test_websocket_and_lifespan_unaffected and test_middleware_non_http_passthrough. There is also a test that an invalid Content-Length header is ignored."
+    },
+    {
+      "criterion": "ACC9",
+      "note": "I added sections to docs/applications.md, docs/routing.md and docs/middleware.md."
+    },
+    {
+      "criterion": "ACC10",
+      "note": "All of the listed areas have tests in tests/benchjudge/test_body_limit.py. test_non_limit_errors_still_propagate covers the non-limit exception branch."
+    }
+  ],
+  "replan_request": null,
+  "summary": "Added starlette/middleware/body_limit.py (per-request limit state, RequestBodyLimitMiddleware, run_with_body_limit helper). I wired max_body_size through Starlette, Router, Mount and Route, closed multipart temp files on any exception, and added docs plus tests. The 35 tests in tests/benchjudge/test_body_limit.py pass. The full suite has 2 failures in tests/test_staticfiles.py. They fail the same way on the base commit, so they are not caused by this change. I could not run ruff, mypy or coverage because they aren't installed here. I checked that every new branch has a test by reading the code and tests, not from a coverage report. I did not run the new tests against the base commit."
+}

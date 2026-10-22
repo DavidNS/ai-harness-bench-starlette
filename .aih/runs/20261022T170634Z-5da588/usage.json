@@ -1,0 +1,70 @@
+{
+  "cache_creation_input_tokens": 119325,
+  "cache_read_input_tokens": 1109152,
+  "cost_usd": 1.016541,
+  "duration_ms": 338110,
+  "input_tokens": 68,
+  "models": [
+    "claude-sonnet-5-5"
+  ],
+  "num_turns": 48,
+  "output_tokens": 42819,
+  "sessions": [
+    {
+      "cache_creation_input_tokens": 7218,
+      "cache_read_input_tokens": 0,
+      "cost_usd": 0.038206,
+      "duration_ms": 6603,
+      "input_tokens": 2,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 2,
+      "output_tokens": 933,
+      "purpose": "intake",
+      "session_id": "36911d01-59c1-4d86-b556-50c1360d53b6"
+    },
+    {
+      "cache_creation_input_tokens": 26401,
+      "cache_read_input_tokens": 80615,
+      "cost_usd": 0.1852095,
+      "duration_ms": 47769,
+      "input_tokens": 12,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 12,
+      "output_tokens": 7152,
+      "purpose": "plan",
+      "session_id": "4cb02edc-55be-436c-955e-e8834764d92b"
+    },
+    {
+      "cache_creation_input_tokens": 57469,
+      "cache_read_input_tokens": 1003137,
+      "cost_usd": 0.5940197,
+      "duration_ms": 234822,
+      "input_tokens": 50,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 31,
+      "output_tokens": 26373,
+      "purpose": "implement",
+      "session_id": "c705b6ca-aa2a-463d-a06b-e7ab38d7c052"
+    },
+    {
+      "cache_creation_input_tokens": 28237,
+      "cache_read_input_tokens": 25400,
+      "cost_usd": 0.199106,
+      "duration_ms": 48916,
+      "input_tokens": 4,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "num_turns": 3,
+      "output_tokens": 8361,
+      "purpose": "review",
+      "session_id": "fbc6d62b-bed3-409f-9b50-fbe4f7ea955e"
+    }
+  ]
+}

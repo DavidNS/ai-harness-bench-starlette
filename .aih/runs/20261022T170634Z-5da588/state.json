@@ -1,0 +1,167 @@
+{
+  "attempts_total": 1,
+  "base_failures": {
+    "base": "c41236c03868fb3779a64101f4ea88cd47877e23",
+    "checked": [
+      "FAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]",
+      "FAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]"
+    ],
+    "failing": [
+      "FAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[asyncio]",
+      "FAILED tests/test_staticfiles.py::test_staticfiles_with_invalid_dir_permissions_returns_401[trio]"
+    ]
+  },
+  "base_ref": "aih-base",
+  "base_sha": "c41236c03868fb3779a64101f4ea88cd47877e23",
+  "config": "/work/aih.toml",
+  "created_at": "2026-10-22T17:06:34+00:00",
+  "head": "7ebdf720586c0e80d31767eb37188d817488b8da",
+  "plan_session_id": "4cb02edc-55be-436c-955e-e8834764d92b",
+  "plan_version": 1,
+  "repo": "/work/tree",
+  "run_id": "20261022T170634Z-5da588",
+  "status": "implemented",
+  "tasks": {
+    "T1": {
+      "advisories": [
+        {
+          "file": "tests/benchjudge/test_body_limit.py",
+          "line": 0,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "No test combines a declared Content-Length with an inner Mount/Router limit that raises or lowers the app limit (only route-level fail-fast is tested)."
+        },
+        {
+          "file": "tests/benchjudge/test_body_limit.py",
+          "line": 340,
+          "pass": 2,
+          "severity": "advisory",
+          "text": "test_response_started_in_starlette_streaming asserts only `status in (200, 413)`, so it is a weak check of the already-started-response path inside Starlette."
+        },
+        {
+          "file": "starlette/routing.py",
+          "line": 456,
+          "pass": 4,
+          "severity": "advisory",
+          "text": "Mount.handle's getattr-based router sniffing to choose check_content_length is convoluted; a mounted Starlette/Router could always defer the check."
+        }
+      ],
+      "attempts": 1,
+      "commit": "7ebdf720586c0e80d31767eb37188d817488b8da",
+      "coverage": [
+        {
+          "criterion": "ACC1",
+          "line": 67,
+          "note": "1MB accepted by default; kwargs exercised throughout",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_default_is_unlimited"
+        },
+        {
+          "criterion": "ACC2",
+          "line": 161,
+          "note": "raise/lower/inherit for mount, plus route tests",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_mount_router_limits"
+        },
+        {
+          "criterion": "ACC3",
+          "line": 283,
+          "note": "boundary and 413 body/content-type asserted",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_middleware_plain_asgi_app"
+        },
+        {
+          "criterion": "ACC4",
+          "line": 93,
+          "note": "absent and understated CL; multipart exact-size boundary test too",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_app_limit_without_content_length_or_understated"
+        },
+        {
+          "criterion": "ACC5",
+          "line": 227,
+          "note": "route, no-route, 405, middleware entry covered; my probe added mount/router cases",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_content_length_fail_fast_no_route_and_no_method"
+        },
+        {
+          "criterion": "ACC6",
+          "line": 340,
+          "note": "single response start and http.disconnect asserted",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_response_started_then_limit_crossed_disconnects"
+        },
+        {
+          "criterion": "ACC7",
+          "line": 392,
+          "note": "file closed asserted on limit crossing and on arbitrary exception",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_multipart_files_closed_on_body_limit"
+        },
+        {
+          "criterion": "ACC8",
+          "line": 116,
+          "note": "GET, websocket, lifespan with limit 1",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_websocket_and_lifespan_unaffected"
+        },
+        {
+          "criterion": "ACC10",
+          "line": 148,
+          "note": "tests exist for all listed areas",
+          "probe": {
+            "path": "tests/benchjudge/test_aih_probe_bl.py"
+          },
+          "probe_base": "fails",
+          "probe_outcome": "verified",
+          "status": "covered",
+          "test": "tests/benchjudge/test_body_limit.py::test_route_raises_app_limit"
+        }
+      ],
+      "session_id": "c705b6ca-aa2a-463d-a06b-e7ab38d7c052",
+      "status": "committed"
+    }
+  },
+  "updated_at": "2026-10-22T17:12:43+00:00",
+  "worktree": "/work/aih/worktrees/20261022T170634Z-5da588"
+}
