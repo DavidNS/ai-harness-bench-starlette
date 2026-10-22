@@ -54,6 +54,18 @@ routes = [
 app = Starlette(debug=True, routes=routes, lifespan=lifespan)
 ```
 
+### Limiting the request body size
+
+Pass `max_body_size` (in bytes) to limit the size of HTTP request bodies. The limit is
+applied before routing, and a request exceeding it gets a `413` response with the
+plain-text body `Content Too Large`. The default `None` means unlimited.
+
+```python
+app = Starlette(routes=routes, max_body_size=1024 * 1024)
+```
+
+`Router`, `Mount` and `Route` accept the same option, see [Routing](routing.md#limiting-the-request-body-size).
+
 ### Storing state on the app instance
 
 You can store arbitrary extra state on the application instance, using the
