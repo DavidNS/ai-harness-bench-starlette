@@ -7,6 +7,7 @@ import traceback
 
 from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
+from starlette.middleware.body_limit import RequestBodyTooLarge
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, PlainTextResponse, Response
 from starlette.types import ASGIApp, ExceptionHandler, Message, Receive, Scope, Send
@@ -162,6 +163,9 @@ class ServerErrorMiddleware:
 
         try:
             await self.app(scope, receive, _send)
+        except RequestBodyTooLarge:
+            # Already answered with a 413 by the body limit.
+            raise
         except Exception as exc:
             request = Request(scope)
             if self.debug:
