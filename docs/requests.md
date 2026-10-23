@@ -162,6 +162,41 @@ async with request.form() as form:
     object will be created to access underlying file, otherwise form-data part will be parsed and available as a raw
     string.
 
+#### Limiting the request body
+
+Reading the body with `request.body()` or `request.json()` buffers all of it in memory, so a client
+can exhaust the server by streaming a huge body. Set `max_body_size` (in bytes) to reject larger
+requests with a `413` response and the plain-text body `Content Too Large`:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+`max_body_size` is accepted by `Starlette`, `Router`, `Mount` and `Route`. The default, `None`, means no
+limit. The application limit applies before routing, and a limit set on an inner route, mount or router
+replaces the outer one for that part of the tree, whether it is higher or lower. The same limit is
+available for any ASGI application as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
+The limit counts the body bytes received from the server, including multipart file data and
+encoding overhead. `Content-Length` is only used to fail fast: a declared length over the limit is rejected
+as soon as routing has settled which limit applies (the matched route's own limit, otherwise the
+enclosing one; the application's limit for unmatched paths and disallowed methods), before any endpoint
+code runs. Without a header, or with an understated one, the body is counted as it arrives. A mounted router
+or application may still raise the limit, so for a `Mount` the check happens once it has routed the request;
+middleware attached to that mount runs first.
+If the response has already started when the limit is crossed, no second response is sent and the
+body stream ends with a disconnect.
+
 #### Application
 
 The originating Starlette application can be accessed via `request.app`.

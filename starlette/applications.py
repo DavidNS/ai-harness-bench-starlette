@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import _RoutedRequestBodyLimitMiddleware, validate_max_body_size
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,7 +49,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: Maximum size in bytes of a request body, or `None` for no limit.
+                Larger requests get a 413 response. Routes, mounts and routers can
+                override the limit for their part of the application.
         """
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
@@ -71,9 +79,12 @@ class Starlette:
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
 
-        app = self.router
+        app: ASGIApp = self.router
         for cls, args, kwargs in reversed(middleware):
             app = cls(app, *args, **kwargs)
+        if self.max_body_size is not None:
+            # Outermost, so that all body bytes are counted, whatever middleware reads them.
+            app = _RoutedRequestBodyLimitMiddleware(app, self.max_body_size)
         return app
 
     @property
