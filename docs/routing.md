@@ -101,6 +101,28 @@ Route('/users/{user_id:int}', user, methods=["GET", "POST"])
 
 By default function endpoints will only accept `GET` requests, unless specified.
 
+## Limiting the request body
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum
+number of body bytes accepted for a request. Larger requests get a `413` response with
+the body `Content Too Large`. The default `None` means no limit.
+
+```python
+app = Starlette(
+    routes=[
+        Route('/upload', upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Route('/comment', comment, methods=["POST"]),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The application limit applies before routing. A limit on an inner route, mount or router
+overrides the outer one for that part of the tree, raising or lowering it. A declared
+`Content-Length` over the limit that applies is rejected once routing has decided, before
+the endpoint runs; the limit that applies to a request matching no route or no method is
+the application's. See also `RequestBodyLimitMiddleware` in the [middleware docs](middleware.md).
+
 ## Submounting routes
 
 In large applications you might find that you want to break out parts of the

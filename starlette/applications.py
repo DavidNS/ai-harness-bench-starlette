@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,10 +49,13 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get a
+                413 response. Routes, mounts and routers may override it. `None` means no limit.
         """
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
+        self.max_body_size = max_body_size
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
         self.middleware_stack: ASGIApp | None = None
@@ -67,6 +73,11 @@ class Starlette:
 
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + (
+                [Middleware(RequestBodyLimitMiddleware, max_body_size=self.max_body_size, _check_content_length=False)]
+                if self.max_body_size is not None
+                else []
+            )
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )

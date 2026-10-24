@@ -47,6 +47,29 @@ application would look like this:
 
 The following middleware implementations are available in the Starlette package:
 
+## RequestBodyLimitMiddleware
+
+Limits the total size of HTTP request bodies. A request whose body exceeds `max_body_size`
+bytes gets a `413` response with the plain-text body `Content Too Large`.
+
+```python
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+app = RequestBodyLimitMiddleware(app, max_body_size=1024 * 1024)
+```
+
+It works with any ASGI application. Inside Starlette you will usually want the
+`max_body_size` option of `Starlette`, `Router`, `Mount` and `Route` instead, where an
+inner limit overrides an outer one (see [Limiting the request body](routing.md#limiting-the-request-body)).
+
+* The limit counts the body bytes actually received from the server, including multipart
+  file data and encoding overhead.
+* A `Content-Length` header over the limit is rejected immediately, before any application
+  code runs. A missing or understated header does not let a larger body through.
+* If the application has already started its response when the limit is crossed, no second
+  response is sent and the body stream is ended with `http.disconnect`.
+* Websockets, lifespan and requests without a body are not affected.
+
 ## CORSMiddleware
 
 Adds appropriate [CORS headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) to outgoing responses in order to allow cross-origin requests from browsers.
