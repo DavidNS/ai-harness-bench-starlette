@@ -208,6 +208,36 @@ hostname either use `allowed_hosts=["*"]` or omit the middleware.
 
 If an incoming request does not validate correctly then a 400 response will be sent.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than `max_body_size` bytes with a `413` response
+and the plain-text body `Content Too Large`. It can wrap any ASGI application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024)
+]
+
+app = Starlette(routes=..., middleware=middleware)
+```
+
+The following arguments are supported:
+
+* `max_body_size` - The maximum number of body bytes accepted.
+
+The bytes received from the server are counted, including multipart file data and encoding overhead.
+A `Content-Length` header over the limit is rejected before the application runs, but an absent or
+understated header does not let a larger body through. If the application has already started its response
+when the limit is crossed no second response is sent, and the request body stream is stopped by raising
+an exception from `receive()`. Websockets, lifespan and requests without a body are unaffected.
+
+Starlette applications, routers, mounts and routes also accept a `max_body_size` argument,
+see [Limiting the request body size](applications.md#limiting-the-request-body-size).
+
 ## GZipMiddleware
 
 Handles GZip responses for any request that includes `"gzip"` in the `Accept-Encoding` header.

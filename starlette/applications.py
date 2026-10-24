@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import _DeferredRequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -19,6 +20,8 @@ P = ParamSpec("P")
 class Starlette:
     """Creates an Starlette application."""
 
+    _checks_body_limit = True
+
     def __init__(
         self: AppType,
         debug: bool = False,
@@ -26,6 +29,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,8 +51,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get
+                a 413 response. `None` means unlimited. Routes, mounts and routers can set their own limit,
+                which replaces this one for the requests they handle.
         """
         self.debug = debug
+        self.max_body_size = max_body_size
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
@@ -72,6 +81,8 @@ class Starlette:
         )
 
         app = self.router
+        if self.max_body_size is not None:
+            middleware.insert(0, Middleware(_DeferredRequestBodyLimitMiddleware, max_body_size=self.max_body_size))
         for cls, args, kwargs in reversed(middleware):
             app = cls(app, *args, **kwargs)
         return app
