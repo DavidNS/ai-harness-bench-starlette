@@ -293,6 +293,9 @@ app = Router(routes=[
 ])
 ```
 
+`Router`, `Mount` and `Route` accept a `max_body_size` option to limit the size of the
+request body, see [Limiting the request body size](requests.md#limiting-the-request-body-size).
+
 ## WebSocket Routing
 
 When working with WebSocket endpoints, you should use `WebSocketRoute`

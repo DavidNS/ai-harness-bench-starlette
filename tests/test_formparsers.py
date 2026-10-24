@@ -986,3 +986,91 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def test_multipart_body_limit(test_client_factory: TestClientFactory) -> None:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        async with request.form() as form:
+            response = JSONResponse({"size": len(await form["file"].read())})  # type: ignore[union-attr]
+        await response(scope, receive, send)
+
+    from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+    client = test_client_factory(RequestBodyLimitMiddleware(app, max_body_size=400))
+    assert client.post("/", files={"file": ("a.txt", b"x" * 100)}).json() == {"size": 100}
+    # Multipart framing counts towards the limit: the file alone fits, the whole body does not.
+    response = client.post("/", files={"file": ("a.txt", b"x" * 390)})
+    assert response.status_code == 413
+    assert response.text == "Content Too Large"
+
+
+def test_multipart_files_closed_when_parse_is_interrupted() -> None:
+    import anyio
+
+    from starlette.datastructures import Headers
+    from starlette.formparsers import MultiPartParser
+
+    body = b"--b\r\nContent-Disposition: form-data; name=file; filename=a.txt\r\n\r\n" + b"x" * 100 + b"\r\n--b--\r\n"
+
+    class Interrupted(Exception):
+        pass
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield body[:80]
+        raise Interrupted()
+
+    parser = MultiPartParser(Headers({"Content-Type": "multipart/form-data; boundary=b"}), stream())
+
+    async def run() -> None:
+        with pytest.raises(Interrupted):
+            await parser.parse()
+
+    anyio.run(run)
+    assert len(parser._files_to_close_on_error) == 1
+    assert parser._files_to_close_on_error[0].closed
+
+
+def test_multipart_files_closed_when_body_limit_crossed() -> None:
+    import anyio
+
+    from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+    parsers: list[Any] = []
+    original_init = MultiPartParser.__init__
+
+    def spy(self: MultiPartParser, *args: Any, **kwargs: Any) -> None:
+        original_init(self, *args, **kwargs)
+        parsers.append(self)
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        async with request.form():
+            pass  # pragma: no cover
+
+    head = b"--b\r\nContent-Disposition: form-data; name=file; filename=a.txt\r\n\r\n" + b"x" * 100
+    messages = [
+        {"type": "http.request", "body": head, "more_body": True},
+        {"type": "http.request", "body": b"x" * 300, "more_body": True},
+    ]
+    sent: list[Any] = []
+
+    async def receive() -> Any:
+        return messages.pop(0)
+
+    async def send(message: Any) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "headers": [(b"content-type", b"multipart/form-data; boundary=b")],
+    }
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(MultiPartParser, "__init__", spy)
+        anyio.run(RequestBodyLimitMiddleware(app, max_body_size=300), scope, receive, send)
+    assert sent[0]["status"] == 413
+    assert len(parsers) == 1
+    assert len(parsers[0]._files_to_close_on_error) == 1
+    assert parsers[0]._files_to_close_on_error[0].closed
