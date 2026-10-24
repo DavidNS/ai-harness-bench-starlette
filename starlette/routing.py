@@ -13,6 +13,7 @@ from enum import Enum
 from re import Pattern
 from typing import Any, TypeVar
 
+from starlette._body_limit import check_content_length, defers_limit_check, run_with_limit
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import get_route_path, is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -203,8 +204,10 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
+        self.max_body_size = max_body_size
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
@@ -265,6 +268,10 @@ class Route(BaseRoute):
         return URLPath(path=path, protocol="http")
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        await run_with_limit(self.max_body_size, scope, receive, send, self._handle)
+
+    async def _handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        check_content_length(scope)
         if self.methods and scope["method"] not in self.methods:
             headers = {"Allow": ", ".join(self.methods)}
             if "app" in scope:
@@ -365,7 +372,9 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        self.max_body_size = max_body_size
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
@@ -445,6 +454,11 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        await run_with_limit(self.max_body_size, scope, receive, send, self._handle)
+
+    async def _handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not defers_limit_check(self._base_app):
+            check_content_length(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -507,6 +521,8 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not defers_limit_check(self.app):
+            check_content_length(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -574,7 +590,9 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -669,6 +687,10 @@ class Router:
             await self.lifespan(scope, receive, send)
             return
 
+        await run_with_limit(self.max_body_size, scope, receive, send, self._route)
+
+    async def _route(self, scope: Scope, receive: Receive, send: Send) -> None:
+
         partial = None
 
         for route in self.routes:
@@ -690,6 +712,9 @@ class Router:
             scope.update(partial_scope)
             await partial.handle(scope, receive, send)
             return
+
+        if scope["type"] == "http":
+            check_content_length(scope)
 
         route_path = get_route_path(scope)
         if scope["type"] == "http" and self.redirect_slashes and route_path != "/":

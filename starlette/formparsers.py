@@ -288,10 +288,15 @@ class MultiPartParser:
                 self._file_parts_to_write.clear()
                 self._file_parts_to_finish.clear()
             parser.finalize()
-        except (MultiPartException, OSError) as exc:
-            # Close all the files if there was an error.
+            # A body that ends in the middle of a file part leaves its file out of the form.
+            kept = {id(value.file) for _, value in self.items if isinstance(value, UploadFile)}
+            for file in self._files_to_close_on_error:
+                if id(file) not in kept:
+                    file.close()
+        except BaseException:
+            # Close all the files if the parse was interrupted for any reason.
             for file in self._files_to_close_on_error:
                 file.close()
-            raise exc
+            raise
 
         return FormData(self.items)
