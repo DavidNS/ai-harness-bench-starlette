@@ -288,10 +288,11 @@ class MultiPartParser:
                 self._file_parts_to_write.clear()
                 self._file_parts_to_finish.clear()
             parser.finalize()
-        except (MultiPartException, OSError) as exc:
-            # Close all the files if there was an error.
+        except BaseException:
+            # Close all the files if the parsing was interrupted for any reason,
+            # e.g. an invalid body, a disconnect, the body limit or a cancellation.
             for file in self._files_to_close_on_error:
                 file.close()
-            raise exc
+            raise
 
         return FormData(self.items)
