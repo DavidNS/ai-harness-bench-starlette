@@ -12,13 +12,15 @@ from unittest import mock
 
 import pytest
 
+from starlette import formparsers
 from starlette.applications import Starlette
 from starlette.datastructures import Headers, UploadFile
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser, _user_safe_decode
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from tests.types import TestClientFactory
 
 
@@ -986,3 +988,106 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def test_multipart_request_over_body_limit(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+    path = os.path.join(tmpdir, "test.txt")
+    with open(path, "wb") as file:
+        file.write(b"x" * 1000)
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:  # pragma: no cover
+        request = Request(scope, receive)
+        await request.form()
+
+    client = test_client_factory(RequestBodyLimitMiddleware(app, max_body_size=500))
+    with open(path, "rb") as f:
+        response = client.post("/", files={"test": f})
+    assert response.status_code == 413
+    assert response.text == "Content Too Large"
+
+
+def test_multipart_body_limit_counts_encoding_overhead(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        async with request.form() as form:
+            response = JSONResponse({"size": len(await form["test"].read())})  # type: ignore[union-attr]
+        await response(scope, receive, send)
+
+    # The file data alone fits in the limit; the multipart framing does not.
+    client = test_client_factory(RequestBodyLimitMiddleware(app, max_body_size=400))
+    response = client.post("/", files={"test": ("a.txt", b"x" * 380)})
+    assert response.status_code == 413
+    response = client.post("/", files={"test": ("a.txt", b"x" * 10)})
+    assert response.json() == {"size": 10}
+
+
+def test_multipart_temp_files_closed_when_interrupted(monkeypatch: pytest.MonkeyPatch) -> None:
+    import anyio
+
+    created: list[Any] = []
+    original = SpooledTemporaryFile
+
+    def tracking(*args: Any, **kwargs: Any) -> Any:
+        file = original(*args, **kwargs)
+        created.append(file)
+        return file
+
+    monkeypatch.setattr(formparsers, "SpooledTemporaryFile", tracking)
+
+    body = b"--b\r\nContent-Disposition: form-data; name=f; filename=a.txt\r\n\r\n" + b"x" * 50
+
+    async def stream() -> Any:
+        yield body
+        raise RuntimeError("interrupted")
+
+    async def run() -> None:
+        parser = formparsers.MultiPartParser(Headers({"Content-Type": "multipart/form-data; boundary=b"}), stream())
+        with pytest.raises(RuntimeError):
+            await parser.parse()
+
+    anyio.run(run)
+    assert len(created) == 1
+    assert created[0].closed
+
+
+def test_multipart_temp_files_closed_on_body_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    import anyio
+
+    created: list[Any] = []
+    original = SpooledTemporaryFile
+
+    def tracking(*args: Any, **kwargs: Any) -> Any:
+        file = original(*args, **kwargs)
+        created.append(file)
+        return file
+
+    monkeypatch.setattr(formparsers, "SpooledTemporaryFile", tracking)
+
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        await Request(scope, receive).form()  # pragma: no cover
+
+    messages: list[Message] = [
+        {
+            "type": "http.request",
+            "body": b"--b\r\nContent-Disposition: form-data; name=f; filename=a.txt\r\n\r\n" + b"x" * 20,
+            "more_body": True,
+        },
+        {"type": "http.request", "body": b"x" * 200},
+    ]
+    sent: list[Message] = []
+
+    async def receive() -> Message:
+        return messages.pop(0)
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "headers": [(b"content-type", b"multipart/form-data; boundary=b")],
+    }
+    anyio.run(RequestBodyLimitMiddleware(app, max_body_size=150), scope, receive, send)
+    assert sent[0]["status"] == 413
+    assert len(created) == 1
+    assert created[0].closed

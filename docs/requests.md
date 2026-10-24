@@ -162,6 +162,38 @@ async with request.form() as form:
     object will be created to access underlying file, otherwise form-data part will be parsed and available as a raw
     string.
 
+#### Limiting the request body
+
+By default the size of a request body is unlimited, so `await request.body()` or
+`await request.json()` will buffer whatever a client sends. Set `max_body_size` (in bytes)
+to answer larger requests with a `413` response and the plain-text body `Content Too Large`:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route, Router
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+`max_body_size` is accepted by `Starlette`, `Router`, `Mount` and `Route`. The application-level
+limit applies before routing; a limit set on an inner route, mount or router overrides the outer
+one for that part of the tree, so it can raise or lower it. `None` (the default) leaves the
+outer limit in place, or no limit at all.
+
+The limit counts the body bytes received from the server, including multipart file data and
+encoding overhead. A declared `Content-Length` over the limit is rejected as soon as routing has
+decided which limit applies: the matched route's own limit, the outer one for a route without
+its own, and the application's for a request that matches no route or no method. Middleware
+placed on an outer mount may run before that point. An absent or understated `Content-Length` does not let a body
+through. Outside Starlette, use
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 #### Application
 
 The originating Starlette application can be accessed via `request.app`.
