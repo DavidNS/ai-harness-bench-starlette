@@ -2,6 +2,16 @@
 toc_depth: 2
 ---
 
+## Unreleased
+
+#### Added
+
+* Add `max_body_size` to `Starlette`, `Router`, `Mount` and `Route`, and `RequestBodyLimitMiddleware`, to limit the request body size.
+
+#### Fixed
+
+* Close the temporary files of `MultiPartParser` whenever a parse is interrupted.
+
 ## 1.5.1 (August 8, 2026)
 
 #### Fixed

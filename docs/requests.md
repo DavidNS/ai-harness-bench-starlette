@@ -174,3 +174,35 @@ using `request.state`.
 For example:
 
 `request.state.time_started = time.time()`
+
+### Request body limits
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum
+size in bytes of a request body. A request that exceeds it gets a `413` response with the
+plain text body `Content Too Large`. The default `None` means unlimited.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The limit set on the application applies before routing. A limit set on a route, mount or
+router overrides the outer one for that part of the tree, so it can raise or lower it.
+
+The limit counts the body bytes received from the server, including multipart file data
+and encoding overhead. A declared `Content-Length` over the limit is rejected as soon as
+routing has decided which limit applies, before the endpoint runs: the matched route's own
+limit, otherwise the enclosing one. An absent or understated header does not let a larger
+body through. If the response has already started when the limit is crossed no second
+response is sent, and the body stream is stopped.
+
+To apply a limit to any ASGI application see
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
