@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import make_limit_middleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -14,6 +15,10 @@ from starlette.types import ASGIApp, ExceptionHandler, Lifespan, Receive, Scope,
 
 AppType = TypeVar("AppType", bound="Starlette")
 P = ParamSpec("P")
+
+
+def make_limit_middleware_factory(app: ASGIApp, max_body_size: int) -> ASGIApp:
+    return make_limit_middleware(app, max_body_size)
 
 
 class Starlette:
@@ -26,6 +31,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,8 +53,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: Maximum size in bytes of an HTTP request body, or `None` for no
+                limit. Requests exceeding it get a 413 response. Routes, mounts and routers
+                may set their own limit, which replaces this one for their part of the tree.
         """
         self.debug = debug
+        self.max_body_size = max_body_size
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
@@ -65,8 +76,14 @@ class Starlette:
             else:
                 exception_handlers[key] = value
 
+        limit_middleware = (
+            []
+            if self.max_body_size is None
+            else [Middleware(make_limit_middleware_factory, max_body_size=self.max_body_size)]
+        )
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + limit_middleware
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
