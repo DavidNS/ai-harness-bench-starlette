@@ -68,3 +68,31 @@ app.state.ADMIN_EMAIL = 'admin@example.org'
 ### Accessing the app instance
 
 Where a `request` is available (i.e. endpoints and middleware), the app is available on `request.app`.
+
+### Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` keyword argument, the maximum
+number of request body bytes in the request. Larger requests get a `413` response with the body
+`Content Too Large`. The default `None` means unlimited.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/avatar", upload_avatar, methods=["POST"], max_body_size=5 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+The limit of the application applies before routing. A limit set on an inner route, mount or router
+replaces the outer one for that part of the tree, so it can be higher or lower. The bytes received from the server
+are counted. A `Content-Length` over the limit is rejected as soon as routing has settled which limit applies,
+before the endpoint runs. For a request matching no route or method, that is the limit of the enclosing application,
+mount or router.
+
+The same behaviour is available for any ASGI application with
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
