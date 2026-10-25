@@ -13,6 +13,12 @@ from enum import Enum
 from re import Pattern
 from typing import Any, TypeVar
 
+from starlette._body_limit import (
+    defers_body_limit,
+    run_with_body_limit,
+    settle_application_body_limit,
+    settle_body_limit,
+)
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import get_route_path, is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -203,11 +209,13 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
+        self.max_body_size = max_body_size
         self.include_in_schema = include_in_schema
 
         endpoint_handler = endpoint
@@ -266,6 +274,8 @@ class Route(BaseRoute):
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.methods and scope["method"] not in self.methods:
+            # The route does not handle this request, so its own limit does not apply.
+            settle_application_body_limit(scope)
             headers = {"Allow": ", ".join(self.methods)}
             if "app" in scope:
                 raise HTTPException(status_code=405, headers=headers)
@@ -273,7 +283,7 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await run_with_body_limit(self.app, scope, receive, send, self.max_body_size)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -365,10 +375,12 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
+        self.max_body_size = max_body_size
         if app is not None:
             self._base_app: ASGIApp = app
         else:
@@ -445,7 +457,10 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        # A mounted router or application settles the `Content-Length` check
+        # itself, once it knows which limit applies.
+        settle = not defers_body_limit(self._base_app)
+        await run_with_body_limit(self.app, scope, receive, send, self.max_body_size, settle=settle)
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -507,6 +522,8 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not defers_body_limit(self.app):
+            settle_body_limit(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -564,6 +581,8 @@ class _DefaultLifespan:
 
 
 class Router:
+    _settles_body_limit = True
+
     def __init__(
         self,
         routes: Sequence[BaseRoute] | None = None,
@@ -574,7 +593,9 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +678,8 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        # The `Content-Length` check is left to `app()`, once routing has decided.
+        await run_with_body_limit(self.middleware_stack, scope, receive, send, self.max_body_size, settle=False)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
@@ -690,6 +712,10 @@ class Router:
             scope.update(partial_scope)
             await partial.handle(scope, receive, send)
             return
+
+        if scope["type"] == "http":
+            # Nothing matched, so the application's limit is the one that applies.
+            settle_application_body_limit(scope)
 
         route_path = get_route_path(scope)
         if scope["type"] == "http" and self.redirect_slashes and route_path != "/":

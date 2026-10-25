@@ -253,6 +253,12 @@ url = request.url_for("sub:users:user_detail", username=..., subdomain=...)
 url = request.url_for("sub:users:user_list", subdomain=...)
 ```
 
+## Limiting request body size
+
+`Route`, `Mount` and `Router` accept a `max_body_size` option (in bytes) which overrides the limit set on
+the application, or on an outer mount or router, for that part of the tree. See
+[Applications](applications.md#limiting-the-request-body-size).
+
 ## Route priority
 
 Incoming paths are matched against each `Route` in order.

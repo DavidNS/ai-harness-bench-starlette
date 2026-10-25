@@ -15,6 +15,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.datastructures import Headers, UploadFile
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser, _user_safe_decode
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount
@@ -986,3 +987,48 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def test_multipart_body_limit(tmpdir: Path, test_client_factory: TestClientFactory) -> None:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        async with request.form() as form:
+            response = JSONResponse({"size": len(await form["file"].read())})  # type: ignore[union-attr]
+        await response(scope, receive, send)
+
+    limited = RequestBodyLimitMiddleware(app, max_body_size=1000)
+    client = test_client_factory(limited)
+    assert client.post("/", files={"file": ("a.txt", b"x" * 100)}).json() == {"size": 100}
+    # File data and the multipart encoding overhead both count.
+    response = client.post("/", files={"file": ("a.txt", b"x" * 990)})
+    assert response.status_code == 413
+    assert response.text == "Content Too Large"
+    response = client.post("/", files={"file": ("a.txt", b"x" * 5000)})
+    assert response.status_code == 413
+
+
+@pytest.mark.anyio
+async def test_multipart_closes_temp_files_when_interrupted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from starlette.formparsers import MultiPartParser
+
+    created: list[Any] = []
+    original = SpooledTemporaryFile
+
+    def tracking(*args: Any, **kwargs: Any) -> Any:
+        file = original(*args, **kwargs)
+        created.append(file)
+        return file
+
+    monkeypatch.setattr("starlette.formparsers.SpooledTemporaryFile", tracking)
+
+    class Interrupted(Exception): ...
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield (b'--b\r\nContent-Disposition: form-data; name="f"; filename="a.txt"\r\n\r\n' + b"x" * 10)
+        raise Interrupted()
+
+    parser = MultiPartParser(Headers({"Content-Type": "multipart/form-data; boundary=b"}), stream())
+    with pytest.raises(Interrupted):
+        await parser.parse()
+    assert len(created) == 1
+    assert created[0].closed
