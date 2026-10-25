@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, ParamSpec, TypeVar
 
+from starlette._body_limit import apply_body_limit, validate_max_body_size
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
 from starlette.middleware.errors import ServerErrorMiddleware
@@ -26,6 +27,7 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,7 +48,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests
+                get a 413 response. `None` (the default) means no limit. Routes, mounts
+                and routers can override it for their part of the application.
         """
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
@@ -87,7 +94,7 @@ class Starlette:
         scope["app"] = self
         if self.middleware_stack is None:
             self.middleware_stack = self.build_middleware_stack()
-        await self.middleware_stack(scope, receive, send)
+        await apply_body_limit(self.middleware_stack, scope, receive, send, self.max_body_size, settle=False)
 
     def mount(self, path: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.mount(path, app=app, name=name)  # pragma: no cover

@@ -162,6 +162,39 @@ async with request.form() as form:
     object will be created to access underlying file, otherwise form-data part will be parsed and available as a raw
     string.
 
+#### Limiting the request body size
+
+By default the size of a request body is not limited, so `await request.json()` will
+buffer whatever the client sends. Pass `max_body_size` (in bytes) to `Starlette`,
+`Router`, `Mount` or `Route` to reject larger requests with a `413` response:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/avatar", upload_avatar, methods=["POST"], max_body_size=5 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+        Route("/small", small),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+The limit set on the application applies before routing. A limit on an inner route,
+mount or router replaces the outer one for that part of the tree, so it can either raise
+or lower it. `None` (the default) means "no limit here", inheriting the outer one.
+
+The limit counts the bytes received from the server, including multipart file data and
+encoding overhead. A `Content-Length` over the limit is rejected as soon as the limit
+that applies is known (after routing), before any route or endpoint code runs;
+a missing or understated header does not let a larger body through. Temporary files
+created while parsing a multipart body are closed when the parse is interrupted.
+
+The same behaviour is available for any ASGI application as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 #### Application
 
 The originating Starlette application can be accessed via `request.app`.

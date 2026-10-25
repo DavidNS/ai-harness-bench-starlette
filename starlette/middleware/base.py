@@ -5,6 +5,7 @@ from typing import Any, TypeVar
 
 import anyio
 
+from starlette._body_limit import BodyTooLarge, is_body_too_large
 from starlette._utils import create_collapsing_task_group
 from starlette.requests import ClientDisconnect, Request
 from starlette.responses import Response
@@ -107,6 +108,7 @@ class BaseHTTPMiddleware:
         wrapped_receive = request.wrapped_receive
         response_sent = anyio.Event()
         app_exc: Exception | None = None
+        body_too_large = False
         exception_already_raised = False
 
         async def call_next(request: Request) -> Response:
@@ -137,13 +139,18 @@ class BaseHTTPMiddleware:
                     return
 
             async def coro() -> None:
-                nonlocal app_exc
+                nonlocal app_exc, body_too_large
 
                 with send_stream:
                     try:
                         await self.app(scope, receive_or_disconnect, send_no_error)
                     except Exception as exc:
                         app_exc = exc
+                    except BaseException as exc:
+                        # The request body limit aborts the app this way; hand it back to the limiter.
+                        if not is_body_too_large(exc):
+                            raise
+                        body_too_large = True
 
             task_group.start_soon(coro)
 
@@ -166,6 +173,8 @@ class BaseHTTPMiddleware:
                     # to prevent `anyio.EndOfStream` from polluting the exception
                     # context.
                     raise app_exc from app_exc.__cause__ or app_exc.__context__
+                if body_too_large:
+                    raise BodyTooLarge()
                 raise RuntimeError("No response returned.")
 
             assert message["type"] == "http.response.start"
@@ -196,6 +205,8 @@ class BaseHTTPMiddleware:
                 recv_stream.close()
         if app_exc is not None and not exception_already_raised:
             raise app_exc
+        if body_too_large:
+            raise BodyTooLarge()
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         raise NotImplementedError()  # pragma: no cover

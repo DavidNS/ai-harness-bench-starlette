@@ -13,6 +13,7 @@ from enum import Enum
 from re import Pattern
 from typing import Any, TypeVar
 
+from starlette._body_limit import apply_body_limit, reaches_router, settle_body_limit, validate_max_body_size
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import get_route_path, is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -203,8 +204,11 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
@@ -266,6 +270,7 @@ class Route(BaseRoute):
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.methods and scope["method"] not in self.methods:
+            settle_body_limit(scope)
             headers = {"Allow": ", ".join(self.methods)}
             if "app" in scope:
                 raise HTTPException(status_code=405, headers=headers)
@@ -273,7 +278,7 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await apply_body_limit(self.app, scope, receive, send, self.max_body_size)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -365,8 +370,11 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
         if app is not None:
@@ -378,7 +386,13 @@ class Mount(BaseRoute):
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
         self.name = name
+        self._reaches_router: bool | None = None
         self.path_regex, self.path_format, self.param_convertors = compile_path(self.path + "/{path:path}")
+
+    def _settles_below(self) -> bool:
+        if self._reaches_router is None:
+            self._reaches_router = reaches_router(self.app)
+        return self._reaches_router
 
     @property
     def routes(self) -> list[BaseRoute]:
@@ -445,7 +459,8 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        # A router further down settles the limit itself once it has routed.
+        await apply_body_limit(self.app, scope, receive, send, self.max_body_size, settle=not self._settles_below())
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -462,7 +477,13 @@ class Host(BaseRoute):
         self.host = host
         self.app = app
         self.name = name
+        self._reaches_router: bool | None = None
         self.host_regex, self.host_format, self.param_convertors = compile_path(host)
+
+    def _settles_below(self) -> bool:
+        if self._reaches_router is None:
+            self._reaches_router = reaches_router(self.app)
+        return self._reaches_router
 
     @property
     def routes(self) -> list[BaseRoute]:
@@ -507,7 +528,7 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        await apply_body_limit(self.app, scope, receive, send, None, settle=not self._settles_below())
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Host) and self.host == other.host and self.app == other.app
@@ -574,7 +595,10 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +681,7 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        await apply_body_limit(self.middleware_stack, scope, receive, send, self.max_body_size, settle=False)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
@@ -677,6 +701,8 @@ class Router:
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
+                if not isinstance(route, (Route, Mount, Host)):
+                    settle_body_limit(scope)
                 await route.handle(scope, receive, send)
                 return
             elif match == Match.PARTIAL and partial is None:
@@ -690,6 +716,8 @@ class Router:
             scope.update(partial_scope)
             await partial.handle(scope, receive, send)
             return
+
+        settle_body_limit(scope)
 
         route_path = get_route_path(scope)
         if scope["type"] == "http" and self.redirect_slashes and route_path != "/":
