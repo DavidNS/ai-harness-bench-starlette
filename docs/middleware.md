@@ -126,6 +126,34 @@ if __name__ == '__main__':
     )
 ```
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than `max_body_size` bytes with a
+`413` response and the plain-text body `Content Too Large`. It works with any ASGI
+application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024),
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+```
+
+The limit counts the body bytes actually received from the server (multipart file
+data and encoding overhead included). A `Content-Length` header over the limit is
+rejected immediately, before the application runs, but a missing or understated
+header does not let a larger body through. If the application has already started
+its response when the limit is crossed, no second response is sent and the body
+stream is stopped. Websockets and lifespan events are not affected.
+
+The `Starlette`, `Router`, `Mount` and `Route` classes accept the same limit as a
+`max_body_size` argument, see [Limiting the request body size](requests.md#limiting-the-request-body-size).
+
 ## SessionMiddleware
 
 Adds signed cookie-based HTTP sessions. Session information is readable but not modifiable.
