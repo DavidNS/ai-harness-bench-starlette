@@ -68,3 +68,32 @@ app.state.ADMIN_EMAIL = 'admin@example.org'
 ### Accessing the app instance
 
 Where a `request` is available (i.e. endpoints and middleware), the app is available on `request.app`.
+
+### Limiting the request body size
+
+Pass `max_body_size` (in bytes) to limit the size of request bodies. Larger requests receive a
+`413` response with the plain-text body `Content Too Large`. The default, `None`, means no limit.
+
+```python
+app = Starlette(routes=routes, max_body_size=10 * 1024 * 1024)
+```
+
+`Router`, `Mount` and `Route` accept the same option and override the limit of whatever contains
+them, so they can raise or lower it for their part of the application:
+
+```python
+routes = [
+    Route("/avatar", upload_avatar, methods=["POST"], max_body_size=5 * 1024 * 1024),
+    Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+]
+app = Starlette(routes=routes, max_body_size=1024 * 1024)
+```
+
+The limit counts the body bytes received from the server, multipart file data and encoding
+overhead included. A `Content-Length` header over the limit is rejected as soon as routing
+has decided which limit applies (the matched route's, otherwise the enclosing mount, router or
+application's), before the endpoint runs. A missing or understated header does not let a larger body
+through. If the response has already started, no second response is sent and the request body stream is stopped.
+
+The same limit is available for any ASGI application as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).

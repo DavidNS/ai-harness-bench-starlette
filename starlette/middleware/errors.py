@@ -5,6 +5,7 @@ import inspect
 import sys
 import traceback
 
+from starlette._body_limit import is_body_limit_error
 from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -163,6 +164,9 @@ class ServerErrorMiddleware:
         try:
             await self.app(scope, receive, _send)
         except Exception as exc:
+            if is_body_limit_error(exc):
+                # Not a server error: the layer that applied the limit responds with a 413.
+                raise
             request = Request(scope)
             if self.debug:
                 # In debug mode, return traceback responses.
