@@ -101,6 +101,35 @@ Route('/users/{user_id:int}', user, methods=["GET", "POST"])
 
 By default function endpoints will only accept `GET` requests, unless specified.
 
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` keyword argument, the
+maximum number of request body bytes in bytes, `None` (the default) meaning unlimited.
+A request whose body exceeds it gets a `413` response with the body `Content Too Large`.
+
+```python
+app = Starlette(
+    routes=[
+        Route('/upload', upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Route('/comment', comment, methods=["POST"]),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The limit of the application applies before routing. A limit set on an inner router, mount
+or route replaces the outer one for that part of the tree, so it can raise or lower it.
+
+The limit counts the body bytes actually received from the server, including multipart file
+data and encoding overhead. A `Content-Length` header over the limit is rejected without
+calling your code, as soon as the limit that applies is known (after routing, for the
+application's, or a router's, limit); an absent or understated header does not let a larger
+body through. If the response has already started when the limit is crossed no second
+response is sent, and the body stream ends with an `http.disconnect` message.
+Websockets and lifespan are unaffected.
+
+For other ASGI applications use [`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 ## Submounting routes
 
 In large applications you might find that you want to break out parts of the

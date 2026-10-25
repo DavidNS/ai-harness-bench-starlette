@@ -986,3 +986,68 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def _track_tempfiles(monkeypatch: pytest.MonkeyPatch) -> list[SpooledTemporaryFile[bytes]]:
+    created: list[SpooledTemporaryFile[bytes]] = []
+
+    def factory(*args: Any, **kwargs: Any) -> SpooledTemporaryFile[bytes]:
+        file: SpooledTemporaryFile[bytes] = SpooledTemporaryFile(*args, **kwargs)
+        created.append(file)
+        return file
+
+    monkeypatch.setattr("starlette.formparsers.SpooledTemporaryFile", factory)
+    return created
+
+
+@pytest.mark.anyio
+async def test_multipart_closes_files_when_interrupted(monkeypatch: pytest.MonkeyPatch) -> None:
+    created = _track_tempfiles(monkeypatch)
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield (
+            b"--b\r\nContent-Disposition: form-data; name=f; filename=a.txt\r\n"
+            b"Content-Type: text/plain\r\n\r\npartial data"
+        )
+        raise RuntimeError("interrupted")
+
+    parser = MultiPartParser(Headers({"Content-Type": "multipart/form-data; boundary=b"}), stream())
+    with pytest.raises(RuntimeError):
+        await parser.parse()
+    assert len(created) == 1
+    assert created[0].closed
+
+
+@pytest.mark.anyio
+async def test_multipart_body_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    created = _track_tempfiles(monkeypatch)
+    chunks = [
+        b'--b\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\n\r\n',
+        *[b"x" * 400] * 5,
+        b"\r\n--b--\r\n",
+    ]
+    messages = iter(
+        {"type": "http.request", "body": chunk, "more_body": i < len(chunks) - 1} for i, chunk in enumerate(chunks)
+    )
+
+    async def receive() -> dict[str, Any]:
+        return next(messages)
+
+    sent: list[dict[str, Any]] = []
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "headers": [(b"content-type", b"multipart/form-data; boundary=b")],
+    }
+    starlette_app = Starlette(routes=[Mount("/", app=app)], max_body_size=1000)
+    await starlette_app(scope, receive, send)  # type: ignore[arg-type]
+
+    assert sent[0]["status"] == 413
+    assert sent[1]["body"] == b"Content Too Large"
+    assert len(created) == 1
+    assert created[0].closed
