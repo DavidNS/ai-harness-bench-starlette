@@ -109,6 +109,44 @@ In some cases such as long-polling, or streaming responses you might need to
 determine if the client has dropped the connection. You can determine this
 state with `disconnected = await request.is_disconnected()`.
 
+#### Request body size limits
+
+By default the size of a request body is unlimited. Set `max_body_size` (in bytes) on
+`Starlette`, `Router`, `Mount` or `Route` to answer larger requests with a `413` response
+(plain-text body `Content Too Large`):
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route('/comment', comment, methods=['POST']),  # Limited to 64 KB.
+        Route('/upload', upload, methods=['POST'], max_body_size=50 * 1024 * 1024),
+        Mount('/api', routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The limit of the application applies before routing. A limit set on an inner route, mount
+or router overrides the outer one for that part of the tree, so it can raise or lower it.
+A request that matches no route, or no method, is subject to the limit of the application
+(or of the enclosing mount or router).
+
+The limit counts the body bytes actually received from the server, including multipart file
+data and encoding overhead. `Content-Length` is only used to fail fast: a declared length over
+the limit that applies is rejected as soon as routing has decided, before the endpoint
+and route middleware run. An absent or understated header does not let a larger body through.
+If the endpoint has already started its response, no second response is sent and the body stream
+is stopped. Multipart parsing closes its temporary files when interrupted.
+
+Note that the limit is enforced outside of the application's `middleware`, so the 413 response
+does not pass through it (for example, `CORSMiddleware` will not add headers to it).
+
+The same behaviour is available for any ASGI application with
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 #### Request Files
 
 Request files are normally sent as multipart form data (`multipart/form-data`).
