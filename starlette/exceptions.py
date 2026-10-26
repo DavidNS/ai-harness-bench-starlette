@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http
 from collections.abc import Mapping
+from typing import Any
 
 
 class HTTPException(Exception):
@@ -41,3 +42,18 @@ class StarletteDeprecationWarning(UserWarning):
 
     Reference: https://sethmlarson.dev/deprecations-via-warnings-dont-work-for-python-libraries
     """
+
+
+class RequestBodyTooLarge(BaseException):
+    """
+    Raised from `receive()` once a request body crosses the applicable limit.
+
+    A `BaseException` so that error handling middleware inside the limit layer does not
+    turn it into a 500: the layer that tracks the request answers with the 413.
+    """
+
+    def __init__(self, state: Any = None, receive: Any = None) -> None:
+        super().__init__("Request body exceeds the maximum allowed size.")
+        self.state = state
+        # The server's own `receive`, which can still be polled for a disconnect.
+        self.receive = receive

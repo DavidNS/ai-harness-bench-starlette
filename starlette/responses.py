@@ -22,6 +22,7 @@ from starlette._utils import create_collapsing_task_group
 from starlette.background import BackgroundTask
 from starlette.concurrency import iterate_in_threadpool
 from starlette.datastructures import URL, Headers, MutableHeaders
+from starlette.exceptions import RequestBodyTooLarge
 from starlette.requests import ClientDisconnect
 from starlette.types import Message, Receive, Scope, Send
 
@@ -241,7 +242,15 @@ class StreamingResponse(Response):
 
     async def listen_for_disconnect(self, receive: Receive) -> None:
         while True:
-            message = await receive()
+            try:
+                message = await receive()
+            except RequestBodyTooLarge as exc:
+                # The endpoint never read this body; an oversized one must not cut the response,
+                # but a disconnect still has to end it, so go on listening to the server itself.
+                if exc.receive is None:
+                    await anyio.sleep_forever()
+                receive = exc.receive
+                continue
             if message["type"] == "http.disconnect":
                 break
 

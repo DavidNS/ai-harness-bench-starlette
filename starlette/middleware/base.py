@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable, Mapping, MutableMapping
 from typing import Any, TypeVar
 
 import anyio
 
 from starlette._utils import create_collapsing_task_group
+from starlette.exceptions import RequestBodyTooLarge
 from starlette.requests import ClientDisconnect, Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+if sys.version_info < (3, 11):  # pragma: no cover
+    from exceptiongroup import BaseExceptionGroup
 
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 DispatchFunction = Callable[[Request, RequestResponseEndpoint], Awaitable[Response]]
@@ -106,7 +111,7 @@ class BaseHTTPMiddleware:
         request = _CachedRequest(scope, receive)
         wrapped_receive = request.wrapped_receive
         response_sent = anyio.Event()
-        app_exc: Exception | None = None
+        app_exc: Exception | RequestBodyTooLarge | None = None
         exception_already_raised = False
 
         async def call_next(request: Request) -> Response:
@@ -114,15 +119,21 @@ class BaseHTTPMiddleware:
                 if response_sent.is_set():
                     return {"type": "http.disconnect"}
 
-                async with anyio.create_task_group() as task_group:
+                try:
+                    async with anyio.create_task_group() as task_group:
 
-                    async def wrap(func: Callable[[], Awaitable[T]]) -> T:
-                        result = await func()
-                        task_group.cancel_scope.cancel()
-                        return result
+                        async def wrap(func: Callable[[], Awaitable[T]]) -> T:
+                            result = await func()
+                            task_group.cancel_scope.cancel()
+                            return result
 
-                    task_group.start_soon(wrap, response_sent.wait)
-                    message = await wrap(wrapped_receive)
+                        task_group.start_soon(wrap, response_sent.wait)
+                        message = await wrap(wrapped_receive)
+                except BaseExceptionGroup as excs:
+                    # The body limit's rejection must reach the limit layer as itself.
+                    if len(excs.exceptions) == 1 and isinstance(excs.exceptions[0], RequestBodyTooLarge):
+                        raise excs.exceptions[0] from None
+                    raise
 
                 if response_sent.is_set():
                     return {"type": "http.disconnect"}
@@ -142,7 +153,7 @@ class BaseHTTPMiddleware:
                 with send_stream:
                     try:
                         await self.app(scope, receive_or_disconnect, send_no_error)
-                    except Exception as exc:
+                    except (Exception, RequestBodyTooLarge) as exc:
                         app_exc = exc
 
             task_group.start_soon(coro)
