@@ -249,6 +249,49 @@ intact, or responses with a `Content-Type` in `exclude_content_types` - by defau
 avoid compressing server-sent events, and already-compressed formats, where compression wastes CPU for no
 gain.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than a limit with a `413` response and the plain-text body
+`Content Too Large`. It works with any ASGI application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024)
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+```
+
+* `max_body_size` - The maximum number of body bytes in a request. `None` disables the limit. It must be `None` or an `int` that is not a `bool` and is at least `0`; anything else raises `TypeError` or `ValueError` when the middleware (or application, router, mount or route) is created. `0` is allowed and accepts only requests with an empty body.
+
+The limit counts the body bytes actually received from the server, including multipart file data and encoding
+overhead. A `Content-Length` header over the limit is rejected before the application is called, but a missing or
+understated header does not let a larger body through. If the application has already started its response
+when the limit is crossed, no second response is sent and the body stream is stopped (the application sees a
+disconnect). Websockets and lifespan are not affected.
+
+Within a Starlette application you can use the `max_body_size` option of `Starlette`, `Router`, `Mount` and
+`Route` instead. A limit set on an inner route, mount or router replaces the outer one for that part of the
+application, so it can raise as well as lower the application-wide limit:
+
+```python
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Route("/api", api, methods=["POST"]),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+Inside a Starlette application a declared `Content-Length` is checked once routing has decided which limit
+applies: the matched route's own limit, the enclosing one for a route without its own, and the application's (or
+router's) for a request that matches no route or no method.
+
 ## BaseHTTPMiddleware
 
 An abstract class that allows you to write ASGI middleware against a request/response

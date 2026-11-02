@@ -16,7 +16,7 @@ from starlette.applications import Starlette
 from starlette.datastructures import Headers, UploadFile
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser, _user_safe_decode
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
 from tests.types import TestClientFactory
@@ -986,3 +986,43 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def test_multipart_body_limit(test_client_factory: TestClientFactory) -> None:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        async with request.form():
+            pass
+        await Response("ok")(scope, receive, send)
+
+    from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+    client = test_client_factory(RequestBodyLimitMiddleware(app, max_body_size=500))
+    assert client.post("/", files={"f": ("a.txt", b"x" * 100)}).status_code == 200
+    response = client.post("/", files={"f": ("a.txt", b"x" * 1000)})
+    assert response.status_code == 413
+    assert response.text == "Content Too Large"
+
+
+def test_multipart_files_closed_when_interrupted() -> None:
+    import anyio
+
+    from starlette.datastructures import Headers
+    from starlette.formparsers import MultiPartParser
+
+    boundary = "b"
+    head = b'--b\r\nContent-Disposition: form-data; name="f"; filename="a.txt"\r\n\r\ndata'
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield head
+        raise RuntimeError("interrupted")
+
+    parser = MultiPartParser(Headers({"content-type": f"multipart/form-data; boundary={boundary}"}), stream())
+
+    async def run() -> None:
+        with pytest.raises(RuntimeError):
+            await parser.parse()
+
+    anyio.run(run)
+    assert len(parser._files_to_close_on_error) == 1
+    assert all(f.closed for f in parser._files_to_close_on_error)
