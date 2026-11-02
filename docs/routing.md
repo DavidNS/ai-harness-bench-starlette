@@ -146,6 +146,36 @@ routes = [
 app = Starlette(routes=routes)
 ```
 
+## Limiting the request body
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` keyword argument, the maximum number
+of request body bytes in a request. A larger request gets a `413` response with the body `Content Too Large`.
+The default, `None`, means no limit.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/comment", comment, methods=["POST"]),
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The application's limit applies before routing. A limit set on an inner route, mount or router replaces the
+outer one for that part of the tree, so it can raise or lower the application-wide limit. A route, mount or
+router without a limit inherits the outer one, and a request that matches no route, or no method, is subject to
+the application's limit.
+
+The bytes received from the server are counted, `Content-Length` is only used to fail fast: a declared
+length over the limit is rejected once routing has settled which limit applies, before the endpoint runs.
+To apply the same limit to any ASGI application, see
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 ## Reverse URL lookups
 
 You'll often want to be able to generate the URL for a particular route,

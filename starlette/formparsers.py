@@ -244,6 +244,10 @@ class MultiPartParser:
     def on_end(self) -> None:
         pass
 
+    def _declared_length(self) -> int:
+        value = self.headers.get("content-length", "")
+        return int(value) if value.isascii() and value.isdigit() and len(value) <= 30 else 0
+
     async def parse(self) -> FormData:
         # Parse the Content-Type header to get the multipart boundary.
         _, params = parse_options_header(self.headers["Content-Type"])
@@ -270,9 +274,11 @@ class MultiPartParser:
 
         # Create the parser.
         parser = multipart.MultipartParser(boundary, callbacks)
+        received = 0
         try:
             # Feed the parser with data from the request.
             async for chunk in self.stream:
+                received += len(chunk)
                 parser.write(chunk)
                 # Write file data, it needs to use await with the UploadFile methods
                 # that call the corresponding file methods *in a threadpool*,
@@ -288,8 +294,15 @@ class MultiPartParser:
                 self._file_parts_to_write.clear()
                 self._file_parts_to_finish.clear()
             parser.finalize()
-        except (MultiPartException, OSError) as exc:
-            # Close all the files if there was an error.
+            if (
+                self._files_to_close_on_error
+                and parser.state != multipart.multipart.MultipartState.END
+                and received < self._declared_length()
+            ):
+                # Cut short: the body stopped before its final boundary and before its declared length.
+                raise MultiPartException("The multipart body ended before its final boundary.")
+        except BaseException as exc:
+            # Close all the files if the parse was interrupted, whatever the reason.
             for file in self._files_to_close_on_error:
                 file.close()
             raise exc
