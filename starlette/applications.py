@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import _ROOT_KEY, BodyLimitRoot, _AppBodyLimitMiddleware, never_swallowed
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,12 +49,15 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Larger requests get a 413
+                response. `None` means unlimited. Routers, mounts and routes can override it.
         """
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
+        self.max_body_size = max_body_size
         self.middleware_stack: ASGIApp | None = None
 
     def build_middleware_stack(self) -> ASGIApp:
@@ -65,8 +71,14 @@ class Starlette:
             else:
                 exception_handlers[key] = value
 
+        body_limit = (
+            []
+            if self.max_body_size is None
+            else [Middleware(_AppBodyLimitMiddleware, max_body_size=self.max_body_size)]
+        )
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + body_limit
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
@@ -87,7 +99,23 @@ class Starlette:
         scope["app"] = self
         if self.middleware_stack is None:
             self.middleware_stack = self.build_middleware_stack()
-        await self.middleware_stack(scope, receive, send)
+        if scope["type"] != "http" or _ROOT_KEY in scope:
+            await self.middleware_stack(scope, receive, send)
+            return
+        # Tracks what really reaches the server, from above all the user middleware (some hold the response
+        # start back), so that a body limit crossed further down knows whether it can still answer with a 413.
+        root = scope[_ROOT_KEY] = BodyLimitRoot(scope, receive)
+        try:
+            try:
+                await self.middleware_stack(scope, receive, root.wrap_send(send))
+            except BaseException as exc:
+                # The limit was crossed below middleware that kept the response from starting, and whatever
+                # that middleware made of it is not an error to report: the root answers with a 413.
+                if not root.exceeded or (root.started and not root.replaced) or never_swallowed(exc):
+                    raise
+                await root.answer(send)
+        finally:
+            scope.pop(_ROOT_KEY, None)
 
     def mount(self, path: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.mount(path, app=app, name=name)  # pragma: no cover
