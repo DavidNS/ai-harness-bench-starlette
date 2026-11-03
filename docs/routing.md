@@ -293,6 +293,35 @@ app = Router(routes=[
 ])
 ```
 
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum size in
+bytes of the body of an HTTP request. Larger requests get a `413` response with the body
+`Content Too Large`. The default, `None`, means no limit.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The application limit applies before routing. A limit set on an inner route, mount or router
+overrides the outer one for that part of the tree: it can raise it as well as lower it.
+
+The size is the number of body bytes received, so multipart framing counts too. A `Content-Length`
+over the limit is rejected before your code runs, once routing has settled which limit applies: the
+matched route's own limit, the outer one for a route without its own, and the application's one if
+no route or no method matches. The header is only a fail-fast check, the received bytes are always
+counted. For the same behaviour on any ASGI application see
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 ## WebSocket Routing
 
 When working with WebSocket endpoints, you should use `WebSocketRoute`
