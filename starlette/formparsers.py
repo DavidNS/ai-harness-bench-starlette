@@ -288,8 +288,14 @@ class MultiPartParser:
                 self._file_parts_to_write.clear()
                 self._file_parts_to_finish.clear()
             parser.finalize()
-        except (MultiPartException, OSError) as exc:
-            # Close all the files if there was an error.
+            # A truncated body leaves the last file part unfinished and out of the results,
+            # so nothing else would ever close its temporary file.
+            finished = {id(value.file) for _, value in self.items if isinstance(value, UploadFile)}
+            for file in self._files_to_close_on_error:
+                if id(file) not in finished:
+                    file.close()
+        except BaseException as exc:
+            # Close all the files if the parsing was interrupted for any reason.
             for file in self._files_to_close_on_error:
                 file.close()
             raise exc
