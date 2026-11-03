@@ -174,3 +174,40 @@ using `request.state`.
 For example:
 
 `request.state.time_started = time.time()`
+
+## Limiting the request body size
+
+Nothing stops a client from streaming a huge body to `await request.json()`. Set `max_body_size`
+(in bytes) on `Starlette`, `Router`, `Mount` or `Route` to answer larger requests with a `413` response
+and the plain-text body `Content Too Large`. The default `None` means no limit.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/", homepage, methods=["POST"]),
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+* The application's limit applies before routing. A limit on an inner router, mount or route overrides
+  the outer one for that part of the tree, so it can raise or lower it.
+* The limit counts the body bytes actually received, including multipart file data and encoding overhead.
+* `Content-Length` is a fail-fast check: a declared length over the limit that applies is rejected as soon as
+  routing has decided, before your endpoint runs. That is the matched route's limit, the outer one for a
+  route without its own, and the application's for a request that matches no route or no method. A missing or
+  understated header does not let a larger body through. When a mount or route holds an opaque ASGI
+  app that Starlette cannot tell apart from a router, the declared length is checked when that app first
+  receives or sends, so that an inner router can still change the limit.
+* If the response has already started when the limit is crossed, no second response is sent and the body
+  stream is stopped.
+* Websockets, lifespan and requests without a body are unaffected.
+
+Reading the body past the limit raises an exception that derives from `BaseException`, so that `except Exception`
+in your code does not turn it into a different response. To apply a limit to any ASGI application, use
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
