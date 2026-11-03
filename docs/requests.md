@@ -109,6 +109,13 @@ In some cases such as long-polling, or streaming responses you might need to
 determine if the client has dropped the connection. You can determine this
 state with `disconnected = await request.is_disconnected()`.
 
+#### Limiting the body size
+
+Set `max_body_size` on `Starlette`, `Router`, `Mount` or `Route` (or use
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware)) to reject larger
+request bodies with a `413 Content Too Large` response. Reading the body past the limit
+raises an error inside the endpoint and the response is sent for you.
+
 #### Request Files
 
 Request files are normally sent as multipart form data (`multipart/form-data`).

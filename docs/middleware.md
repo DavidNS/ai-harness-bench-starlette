@@ -249,6 +249,46 @@ intact, or responses with a `Content-Type` in `exclude_content_types` - by defau
 avoid compressing server-sent events, and already-compressed formats, where compression wastes CPU for no
 gain.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than `max_body_size` bytes with a `413` response
+(plain text body `Content Too Large`). It works with any ASGI application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024)
+]
+
+app = Starlette(routes=..., middleware=middleware)
+```
+
+The limit counts the body bytes actually received from the server, so multipart file data and
+encoding overhead count too. A declared `Content-Length` larger than the limit is rejected
+immediately, before the application runs; a missing or understated header does not let a larger
+body through, as the received bytes are counted. If the application has already started its
+response when the limit is crossed, no second response is sent and the body stream is stopped.
+WebSockets, lifespan and requests without a body are not affected.
+
+Starlette applications can also set the limit with the `max_body_size` option of `Starlette`,
+`Router`, `Mount` and `Route` (default `None`, unlimited). The application-level limit applies before
+routing; a limit on an inner router, mount or route replaces the outer one for that part of the
+tree, so it can raise or lower it. For `Starlette`, `Content-Length` is checked once routing has
+decided which limit applies.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Route("/api", api, methods=["POST"]),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
 ## BaseHTTPMiddleware
 
 An abstract class that allows you to write ASGI middleware against a request/response
