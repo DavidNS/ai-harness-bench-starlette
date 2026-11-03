@@ -253,6 +253,34 @@ url = request.url_for("sub:users:user_detail", username=..., subdomain=...)
 url = request.url_for("sub:users:user_list", subdomain=...)
 ```
 
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum
+number of body bytes a request may have. Larger requests get a `413` response with the
+body `Content Too Large`. The default `None` means no limit.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/", homepage, methods=["POST"]),
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/tiny", routes=[...], max_body_size=1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+The application limit applies before routing. A limit set on an inner route, mount or
+router overrides the outer one for that part of the tree, so it can raise or lower it.
+
+The limit counts the bytes received from the server, so multipart file data is included.
+A `Content-Length` over the limit is rejected before the endpoint runs, as soon as routing
+has decided which limit applies: the matched route's, else the enclosing one, and the
+application's for requests matching no route or no method. A mounted ASGI application that
+is not a `Router` or `Starlette` instance is treated as the end of routing. The same
+behaviour is available for any ASGI app as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 ## Route priority
 
 Incoming paths are matched against each `Route` in order.
