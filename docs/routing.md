@@ -253,6 +253,41 @@ url = request.url_for("sub:users:user_detail", username=..., subdomain=...)
 url = request.url_for("sub:users:user_list", subdomain=...)
 ```
 
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, in bytes. Requests with a
+larger body get a `413` response. The default, `None`, means no limit.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/", homepage, methods=["POST"]),
+        Route("/upload", upload, methods=["POST"], max_body_size=50_000_000),
+        Mount("/api", routes=api_routes, max_body_size=1_000),
+    ],
+    max_body_size=100_000,
+)
+```
+
+The application's limit applies before routing. A limit set on an inner route, mount or router replaces the
+outer one for that part of the tree, so it can raise or lower the application-wide limit.
+
+The limit counts the body bytes received from the server. `Content-Length` is only used to fail fast: a declared
+length over the limit is rejected before the endpoint runs, once routing has decided which limit applies (the
+matched route's own limit, otherwise the enclosing one - for a request matching no route or method, the one of the
+enclosing router). An absent or understated header does not let a larger body through.
+
+A `Mount` or `Host` can only wait for routing below it when it can see that routing: the mounted app is a `Router`
+or a Starlette application, a `Mount` is built with `routes=`, or the app is wrapped in middleware that keep the
+inner app in an `app` attribute, as Starlette's own middleware do. Any other app, such as a function or a class
+that hides a router, is the end of routing: a declared length over the limit that applies at the mount is rejected
+when the request enters it, without running the app. A higher `max_body_size` set on a router hidden like this still
+applies to the bodies that are counted (for instance chunked ones), but not to the declared length. To raise the limit over such an app, set
+`max_body_size` on the `Mount` itself.
+
+The same limit is available for any ASGI application as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 ## Route priority
 
 Incoming paths are matched against each `Route` in order.

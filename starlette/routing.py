@@ -20,6 +20,7 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
 from starlette.datastructures import URL, Headers, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
+from starlette.middleware.body_limit import check_content_length, defer_content_length_check, run_with_body_limit
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
@@ -203,12 +204,14 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
         self.include_in_schema = include_in_schema
+        self.max_body_size = max_body_size
 
         endpoint_handler = endpoint
         while isinstance(endpoint_handler, functools.partial):
@@ -268,12 +271,15 @@ class Route(BaseRoute):
         if self.methods and scope["method"] not in self.methods:
             headers = {"Allow": ", ".join(self.methods)}
             if "app" in scope:
+                check_content_length(scope)
                 raise HTTPException(status_code=405, headers=headers)
             else:
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
+            # No method matched, so the limit that applies is the outer one.
+            check_content_length(scope)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await run_with_body_limit(self.app, scope, receive, send, self.max_body_size, check=True)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -356,6 +362,27 @@ class WebSocketRoute(BaseRoute):
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r})"
 
 
+def _sees_routing(app: Any) -> bool:
+    """
+    Whether `app` visibly leads to a `Router`: it is one, it is an application with one, or it
+    wraps one through the `app` attribute that Starlette's middleware use. Only instance
+    attributes are read, nothing is called on the app. Anything else is treated as the end
+    of routing.
+    """
+    for _ in range(32):
+        if isinstance(app, Router):
+            return True
+        attributes = getattr(app, "__dict__", None)
+        if not isinstance(attributes, dict):
+            return False
+        if isinstance(attributes.get("router"), Router):
+            return True
+        app = attributes.get("app")
+        if app is None:
+            return False
+    return False  # pragma: no cover
+
+
 class Mount(BaseRoute):
     def __init__(
         self,
@@ -365,6 +392,7 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
@@ -378,6 +406,8 @@ class Mount(BaseRoute):
             for cls, args, kwargs in reversed(middleware):
                 self.app = cls(self.app, *args, **kwargs)
         self.name = name
+        self.max_body_size = max_body_size
+        self._routes_below = _sees_routing(self.app)
         self.path_regex, self.path_format, self.param_convertors = compile_path(self.path + "/{path:path}")
 
     @property
@@ -445,7 +475,11 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        # Routing below the mount may still change the limit, and checks the `Content-Length`
+        # once it has. A mount that ends in a plain app is the end of the line.
+        await run_with_body_limit(
+            self.app, scope, receive, send, self.max_body_size, check=not self._routes_below, defer=self._routes_below
+        )
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -462,6 +496,7 @@ class Host(BaseRoute):
         self.host = host
         self.app = app
         self.name = name
+        self._routes_below = _sees_routing(self.app)
         self.host_regex, self.host_format, self.param_convertors = compile_path(host)
 
     @property
@@ -507,6 +542,10 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self._routes_below:
+            defer_content_length_check(scope)
+        else:
+            check_content_length(scope)
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -574,7 +613,9 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +698,10 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        if self.max_body_size is None:
+            await self.middleware_stack(scope, receive, send)
+        else:
+            await run_with_body_limit(self.middleware_stack, scope, receive, send, self.max_body_size, check=False)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
@@ -702,11 +746,14 @@ class Router:
             for route in self.routes:
                 match, child_scope = route.matches(redirect_scope)
                 if match != Match.NONE:
+                    check_content_length(scope)
                     redirect_url = URL(scope=redirect_scope)
                     response = RedirectResponse(url=str(redirect_url))
                     await response(scope, receive, send)
                     return
 
+        if scope["type"] == "http":
+            check_content_length(scope)
         await self.default(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
