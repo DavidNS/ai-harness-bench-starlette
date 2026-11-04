@@ -3,8 +3,10 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, ParamSpec, TypeVar
 
+from starlette._body_limit import validate_max_body_size
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import _ApplicationBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -19,6 +21,8 @@ P = ParamSpec("P")
 class Starlette:
     """Creates an Starlette application."""
 
+    _defers_body_limit = True
+
     def __init__(
         self: AppType,
         debug: bool = False,
@@ -26,6 +30,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,8 +52,12 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body. Requests exceeding it get
+                a 413 response. A limit set on a route, mount or router takes precedence over it
+                for that part of the application. Defaults to `None`, which means no limit.
         """
         self.debug = debug
+        self.max_body_size = validate_max_body_size(max_body_size)
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
@@ -67,6 +77,7 @@ class Starlette:
 
         middleware = (
             [Middleware(ServerErrorMiddleware, handler=error_handler, debug=debug)]
+            + [Middleware(_ApplicationBodyLimitMiddleware, max_body_size=self.max_body_size)]
             + self.user_middleware
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
