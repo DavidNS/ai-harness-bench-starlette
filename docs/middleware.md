@@ -249,6 +249,42 @@ intact, or responses with a `Content-Type` in `exclude_content_types` - by defau
 avoid compressing server-sent events, and already-compressed formats, where compression wastes CPU for no
 gain.
 
+## RequestBodyLimitMiddleware
+
+Limits the size of HTTP request bodies. A request whose body exceeds the limit gets a `413` response
+with the plain-text body `Content Too Large`.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+
+routes = ...
+
+middleware = [
+    Middleware(RequestBodyLimitMiddleware, max_body_size=1_000_000)
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+```
+
+The following arguments are supported:
+
+* `max_body_size` - The maximum size of the request body, in bytes.
+
+The limit counts the body bytes actually received from the server, including multipart file data and encoding
+overhead. A declared `Content-Length` over the limit is rejected right away, before the application is called,
+but a missing or understated header does not let a larger body through: the body is counted as it arrives.
+If the application has already started its response when the limit is crossed, no second response is sent and
+the body stream is stopped.
+
+The limit of the middleware is final: nothing below it can raise it, and a `max_body_size` set on a route, mount or
+router further in applies in addition, so the stricter of the two wins. Websockets and lifespan are not affected.
+
+Starlette applications can set the same limit with `Starlette(max_body_size=...)`, and routes, mounts and
+routers can set their own, see [Limiting the request body size](routing.md#limiting-the-request-body-size).
+
 ## BaseHTTPMiddleware
 
 An abstract class that allows you to write ASGI middleware against a request/response

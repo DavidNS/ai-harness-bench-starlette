@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 import anyio
 
 from starlette._utils import create_collapsing_task_group
+from starlette.middleware.body_limit import is_body_limit_error
 from starlette.requests import ClientDisconnect, Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -106,7 +107,7 @@ class BaseHTTPMiddleware:
         request = _CachedRequest(scope, receive)
         wrapped_receive = request.wrapped_receive
         response_sent = anyio.Event()
-        app_exc: Exception | None = None
+        app_exc: BaseException | None = None
         exception_already_raised = False
 
         async def call_next(request: Request) -> Response:
@@ -142,7 +143,9 @@ class BaseHTTPMiddleware:
                 with send_stream:
                     try:
                         await self.app(scope, receive_or_disconnect, send_no_error)
-                    except Exception as exc:
+                    except BaseException as exc:
+                        if not isinstance(exc, Exception) and not is_body_limit_error(exc):
+                            raise
                         app_exc = exc
 
             task_group.start_soon(coro)
