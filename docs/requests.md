@@ -174,3 +174,35 @@ using `request.state`.
 For example:
 
 `request.state.time_started = time.time()`
+
+## Request body limits
+
+By default the size of a request body is not limited, so `await request.json()` buffers
+whatever the client sends. Set `max_body_size` (in bytes) to answer larger requests with a
+`413` response (`Content Too Large`). The option is available on `Starlette`, `Router`,
+`Mount` and `Route`:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The application limit applies to every request before routing. A limit on a route, mount
+or router overrides the outer one for that part of the tree, it can be higher or lower.
+A route without its own limit uses the outer one, and requests that match no route or no
+method use the application's limit.
+
+The limit counts the bytes received from the server, including multipart framing. A
+`Content-Length` over the applicable limit is rejected once routing has decided which limit
+applies, before the endpoint runs; a missing or understated header does not let a larger body
+through. The same behaviour is available for any ASGI app as
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+Temporary files of an interrupted multipart parse are closed.
