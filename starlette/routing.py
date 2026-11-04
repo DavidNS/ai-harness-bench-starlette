@@ -13,6 +13,7 @@ from enum import Enum
 from re import Pattern
 from typing import Any, TypeVar
 
+from starlette._body_limit import check_body_limit, defers_body_limit, run_with_body_limit, validate_max_body_size
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import get_route_path, is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -164,6 +165,9 @@ def compile_path(
 
 
 class BaseRoute:
+    # Whether `handle()` takes care of the `Content-Length` fail-fast check itself.
+    _checks_body_limit = False
+
     def matches(self, scope: Scope) -> tuple[Match, Scope]:
         raise NotImplementedError()  # pragma: no cover
 
@@ -194,6 +198,8 @@ class BaseRoute:
 
 
 class Route(BaseRoute):
+    _checks_body_limit = True
+
     def __init__(
         self,
         path: str,
@@ -203,10 +209,12 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
         self.path = path
         self.endpoint = endpoint
+        self.max_body_size = validate_max_body_size(max_body_size)
         self.name = get_name(endpoint) if name is None else name
         self.include_in_schema = include_in_schema
 
@@ -266,6 +274,9 @@ class Route(BaseRoute):
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.methods and scope["method"] not in self.methods:
+            # No route handles this request, so the limit of the enclosing layers applies.
+            if await check_body_limit(scope, send):
+                return
             headers = {"Allow": ", ".join(self.methods)}
             if "app" in scope:
                 raise HTTPException(status_code=405, headers=headers)
@@ -273,7 +284,7 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await run_with_body_limit(self.app, scope, receive, send, self.max_body_size, fail_fast=True)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -357,6 +368,8 @@ class WebSocketRoute(BaseRoute):
 
 
 class Mount(BaseRoute):
+    _checks_body_limit = True
+
     def __init__(
         self,
         path: str,
@@ -365,10 +378,12 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
+        self.max_body_size = validate_max_body_size(max_body_size)
         if app is not None:
             self._base_app: ASGIApp = app
         else:
@@ -445,7 +460,10 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        # A mounted router settles the limit itself; any other app is the end of the line, so check before it runs.
+        await run_with_body_limit(
+            self.app, scope, receive, send, self.max_body_size, fail_fast=not defers_body_limit(self.app)
+        )
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -457,6 +475,8 @@ class Mount(BaseRoute):
 
 
 class Host(BaseRoute):
+    _checks_body_limit = True
+
     def __init__(self, host: str, app: ASGIApp, name: str | None = None) -> None:
         assert not host.startswith("/"), "Host must not start with '/'"
         self.host = host
@@ -507,6 +527,8 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not defers_body_limit(self.app) and await check_body_limit(scope, send):
+            return
         await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
@@ -564,6 +586,8 @@ class _DefaultLifespan:
 
 
 class Router:
+    _defers_body_limit = True
+
     def __init__(
         self,
         routes: Sequence[BaseRoute] | None = None,
@@ -574,7 +598,9 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        self.max_body_size = validate_max_body_size(max_body_size)
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +683,7 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        await run_with_body_limit(self.middleware_stack, scope, receive, send, self.max_body_size, fail_fast=False)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
@@ -677,6 +703,8 @@ class Router:
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
+                if not route._checks_body_limit and await check_body_limit(scope, send):
+                    return
                 await route.handle(scope, receive, send)
                 return
             elif match == Match.PARTIAL and partial is None:
@@ -689,6 +717,9 @@ class Router:
             # We use this in particular to deal with "405 Method Not Allowed".
             scope.update(partial_scope)
             await partial.handle(scope, receive, send)
+            return
+
+        if await check_body_limit(scope, send):
             return
 
         route_path = get_route_path(scope)

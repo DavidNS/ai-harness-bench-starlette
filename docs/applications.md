@@ -68,3 +68,17 @@ app.state.ADMIN_EMAIL = 'admin@example.org'
 ### Accessing the app instance
 
 Where a `request` is available (i.e. endpoints and middleware), the app is available on `request.app`.
+
+### Limiting the request body size
+
+The `max_body_size` argument limits the size in bytes of request bodies. It defaults to
+`None`, meaning no limit. Requests over the limit get a `413` response with the body
+`Content Too Large`.
+
+```python
+app = Starlette(routes=routes, max_body_size=10 * 1024 * 1024)
+```
+
+The limit applies before routing. A `max_body_size` set on a `Router`, `Mount` or `Route`
+overrides it for that part of the application, and can raise or lower it. See
+[Routing](routing.md#limiting-the-request-body-size).

@@ -293,6 +293,36 @@ app = Router(routes=[
 ])
 ```
 
+## Limiting the request body size
+
+`Route`, `Mount` and `Router` accept a `max_body_size` argument (as does `Starlette`),
+limiting the size in bytes of the request body. The default `None` leaves the limit of the
+enclosing router or application in place, which is unlimited unless one of them sets it.
+
+```python
+routes = [
+    Route("/upload", upload, methods=["POST"], max_body_size=100 * 1024 * 1024),
+    Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+    Route("/login", login, methods=["POST"]),
+]
+
+app = Starlette(routes=routes, max_body_size=1024 * 1024)
+```
+
+Here `/upload` accepts up to 100MB, everything under `/api` up to 64KB, and every other
+request, including `/login` and requests that match no route, up to 1MB.
+
+The innermost limit wins, with one exception: the limit of a
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware) is a cap that no limit set further in can raise.
+Requests over the limit get a `413` response with the body
+`Content Too Large`. The limit counts the bytes received, `Content-Length` is only used to
+reject early: once routing has decided which limit applies, a declared length over it is
+rejected before your code runs. Requests that match no route or no method are checked
+against the limit of the enclosing router or application. A mounted app that is not a router, such as a
+plain ASGI app, is checked when it is mounted, before it runs. Middleware wrapped around a mounted
+router or `Starlette` app has to expose it as `.app` (as Starlette's own middleware does) for the router's
+limits to be taken into account before the check.
+
 ## WebSocket Routing
 
 When working with WebSocket endpoints, you should use `WebSocketRoute`
