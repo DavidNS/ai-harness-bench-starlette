@@ -5,6 +5,11 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import (
+    LimitSurvey,
+    dispatch as dispatch_with_body_limit,
+    validate_max_body_size,
+)
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +31,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,13 +53,19 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of an HTTP request body, or `None` for no
+                limit. Routes, mounts and routers can set their own limit, which replaces this
+                one for the part of the application they serve.
         """
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
         self.exception_handlers = {} if exception_handlers is None else dict(exception_handlers)
         self.user_middleware = [] if middleware is None else list(middleware)
         self.middleware_stack: ASGIApp | None = None
+        self._install_body_limit = False
 
     def build_middleware_stack(self) -> ASGIApp:
         debug = self.debug
@@ -71,6 +84,10 @@ class Starlette:
             + [Middleware(ExceptionMiddleware, handlers=exception_handlers, debug=debug)]
         )
 
+        survey = LimitSurvey()
+        self._survey_body_limit(None, survey)
+        self._install_body_limit = survey.explicit
+
         app = self.router
         for cls, args, kwargs in reversed(middleware):
             app = cls(app, *args, **kwargs)
@@ -87,7 +104,37 @@ class Starlette:
         scope["app"] = self
         if self.middleware_stack is None:
             self.middleware_stack = self.build_middleware_stack()
-        await self.middleware_stack(scope, receive, send)
+        await dispatch_with_body_limit(
+            self.middleware_stack,
+            scope,
+            receive,
+            send,
+            self.max_body_size,
+            final=False,
+            install=self._install_body_limit,
+            ceiling=self._initial_body_limit,
+        )
+
+    def _initial_body_limit(self, scope: Scope) -> int | None:
+        survey = LimitSurvey()
+        self._survey_body_limit(None, survey)
+        if survey.ceiling == self.max_body_size:
+            return survey.ceiling
+        # Some route raises the limit: until routing runs, hold the request to the limit of its own route.
+        try:
+            return self._resolve_body_limit(scope, None, 0)
+        except Exception:
+            # The routing pass inside the middleware stack raises it again, where the handlers see it.
+            return self.max_body_size
+
+    def _resolve_body_limit(self, scope: Scope, inherited: int | None, depth: int) -> int | None:
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        return self.router._resolve_body_limit(scope, limit, depth)
+
+    def _survey_body_limit(self, inherited: int | None, survey: LimitSurvey) -> None:
+        survey.explicit = survey.explicit or self.max_body_size is not None
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        self.router._survey_body_limit(limit, survey)
 
     def mount(self, path: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.mount(path, app=app, name=name)  # pragma: no cover
