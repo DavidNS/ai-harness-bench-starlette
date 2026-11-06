@@ -331,3 +331,33 @@ The `endpoint` argument can be one of:
 
 * An async function, which accepts a single `websocket` argument.
 * A class that implements the ASGI interface, such as Starlette's [WebSocketEndpoint](endpoints.md#websocketendpoint).
+
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` keyword argument, the
+maximum size in bytes of the request body. A larger request gets a `413` response with the
+body `Content Too Large`. The default `None` keeps the current unlimited behaviour.
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+routes = [
+    Route("/comment", comment, methods=["POST"]),  # 64 KiB, from the application
+    Route("/upload", upload, methods=["POST"], max_body_size=100 * 1024 * 1024),  # raised
+    Mount("/avatars", routes=avatar_routes, max_body_size=1024 * 1024),  # lowered
+]
+
+app = Starlette(routes=routes, max_body_size=64 * 1024)
+```
+
+The application's limit applies before routing. A limit on an inner route, mount or router
+overrides the outer one for that part of the tree, in both directions. A route without a
+limit uses the outer one, and a request that matches no route, or no method, uses the
+application's (even inside a mount that has a limit of its own).
+
+The limit counts the body bytes received from the server (multipart framing included).
+`Content-Length` is only a fail-fast check: a declared length over the limit that applies
+is rejected as soon as routing has settled it, before the endpoint runs, while a body
+that is larger than declared is stopped when it crosses the limit. See also
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware) for use with other ASGI applications.
