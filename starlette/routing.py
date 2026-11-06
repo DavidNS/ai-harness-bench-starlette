@@ -20,6 +20,15 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
 from starlette.datastructures import URL, Headers, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
+from starlette.middleware.body_limit import (
+    LimitSurvey,
+    begin_route,
+    dispatch as dispatch_with_body_limit,
+    may_change_limit,
+    resolve_limit,
+    survey_limits,
+    validate_max_body_size,
+)
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
@@ -203,12 +212,15 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
+        validate_max_body_size(max_body_size)
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
         self.include_in_schema = include_in_schema
+        self.max_body_size = max_body_size
 
         endpoint_handler = endpoint
         while isinstance(endpoint_handler, functools.partial):
@@ -273,7 +285,17 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await dispatch_with_body_limit(
+                self.app, scope, receive, send, self.max_body_size, final=not may_change_limit(self.app)
+            )
+
+    def _survey_body_limit(self, inherited: int | None, survey: LimitSurvey) -> None:
+        survey.explicit = survey.explicit or self.max_body_size is not None
+        survey_limits(self.app, inherited if self.max_body_size is None else self.max_body_size, survey)
+
+    def _resolve_body_limit(self, scope: Scope, inherited: int | None, depth: int) -> Any:
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        return resolve_limit(self.app, scope, limit, depth)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -365,8 +387,11 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
         if app is not None:
@@ -445,7 +470,17 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        await dispatch_with_body_limit(
+            self.app, scope, receive, send, self.max_body_size, final=not may_change_limit(self.app)
+        )
+
+    def _survey_body_limit(self, inherited: int | None, survey: LimitSurvey) -> None:
+        survey.explicit = survey.explicit or self.max_body_size is not None
+        survey_limits(self.app, inherited if self.max_body_size is None else self.max_body_size, survey)
+
+    def _resolve_body_limit(self, scope: Scope, inherited: int | None, depth: int) -> Any:
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        return resolve_limit(self.app, scope, limit, depth)
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -507,7 +542,13 @@ class Host(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        await dispatch_with_body_limit(self.app, scope, receive, send, None, final=not may_change_limit(self.app))
+
+    def _survey_body_limit(self, inherited: int | None, survey: LimitSurvey) -> None:
+        survey_limits(self.app, inherited, survey)
+
+    def _resolve_body_limit(self, scope: Scope, inherited: int | None, depth: int) -> Any:
+        return resolve_limit(self.app, scope, inherited, depth)
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Host) and self.host == other.host and self.app == other.app
@@ -574,7 +615,10 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        validate_max_body_size(max_body_size)
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +701,63 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        await dispatch_with_body_limit(
+            self.middleware_stack,
+            scope,
+            receive,
+            send,
+            self.max_body_size,
+            final=False,
+            ceiling=self._initial_body_limit,
+        )
+
+    def _initial_body_limit(self, scope: Scope) -> int | None:
+        survey = LimitSurvey()
+        self._survey_body_limit(None, survey)
+        if survey.ceiling == self.max_body_size:
+            return survey.ceiling
+        # Some route raises the limit: until routing runs, hold the request to the limit of its own route.
+        try:
+            return self._resolve_body_limit(scope, None, 0)
+        except Exception:
+            # The routing pass inside the middleware stack raises it again, where the handlers see it.
+            return self.max_body_size
+
+    def _resolve_body_limit(self, scope: Scope, inherited: int | None, depth: int) -> int | None:
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        found = self._resolve_matching_route(scope, limit, depth)
+        if found is None:
+            # Nothing matches: the router answers (404, 405, or a redirect to the other form of the
+            # path), and the redirect goes to a route that may have a limit of its own.
+            route_path = get_route_path(scope)
+            if self.redirect_slashes and route_path != "/":
+                redirect_scope = dict(scope)
+                if route_path.endswith("/"):
+                    redirect_scope["path"] = redirect_scope["path"].rstrip("/")
+                else:
+                    redirect_scope["path"] = redirect_scope["path"] + "/"
+                found = self._resolve_matching_route(redirect_scope, limit, depth)
+        return limit if found is None else found[0]
+
+    def _resolve_matching_route(self, scope: Scope, limit: int | None, depth: int) -> tuple[int | None] | None:
+        for route in self.routes:
+            match, child_scope = route.matches(scope)
+            if match == Match.FULL:
+                hook = getattr(route, "_resolve_body_limit", None)
+                return (limit if hook is None else hook({**scope, **child_scope}, limit, depth),)
+        return None
+
+    def _survey_body_limit(self, inherited: int | None, survey: LimitSurvey) -> None:
+        survey.explicit = survey.explicit or self.max_body_size is not None
+        limit = inherited if self.max_body_size is None else self.max_body_size
+        # Requests that match no route, or the wrong method, are limited by the router itself.
+        survey.limits.add(limit)
+        for route in self.routes:
+            hook = getattr(route, "_survey_body_limit", None)
+            if hook is not None:
+                hook(limit, survey)
+        if self.default != self.not_found:
+            survey_limits(self.default, limit, survey)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
@@ -677,6 +777,7 @@ class Router:
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
+                begin_route(scope, route)
                 await route.handle(scope, receive, send)
                 return
             elif match == Match.PARTIAL and partial is None:
@@ -688,6 +789,7 @@ class Router:
             # able to handle the request, but is not a preferred option.
             # We use this in particular to deal with "405 Method Not Allowed".
             scope.update(partial_scope)
+            begin_route(scope, partial)
             await partial.handle(scope, receive, send)
             return
 
@@ -707,7 +809,9 @@ class Router:
                     await response(scope, receive, send)
                     return
 
-        await self.default(scope, receive, send)
+        await dispatch_with_body_limit(
+            self.default, scope, receive, send, None, final=not may_change_limit(self.default)
+        )
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Router) and self.routes == other.routes
