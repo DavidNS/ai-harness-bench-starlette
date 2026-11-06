@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import limit_body
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -19,6 +20,8 @@ P = ParamSpec("P")
 class Starlette:
     """Creates an Starlette application."""
 
+    _settles_body_limit = True
+
     def __init__(
         self: AppType,
         debug: bool = False,
@@ -26,6 +29,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,7 +51,11 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of an HTTP request body. Larger requests
+                get a 413 response. Routes, mounts and routers can override it for their part
+                of the tree. Defaults to `None`, meaning no limit.
         """
+        self.max_body_size = max_body_size
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
@@ -87,7 +96,7 @@ class Starlette:
         scope["app"] = self
         if self.middleware_stack is None:
             self.middleware_stack = self.build_middleware_stack()
-        await self.middleware_stack(scope, receive, send)
+        await limit_body(self.middleware_stack, scope, receive, send, self.max_body_size, role="app")
 
     def mount(self, path: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.mount(path, app=app, name=name)  # pragma: no cover

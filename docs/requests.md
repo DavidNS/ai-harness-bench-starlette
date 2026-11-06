@@ -109,6 +109,32 @@ In some cases such as long-polling, or streaming responses you might need to
 determine if the client has dropped the connection. You can determine this
 state with `disconnected = await request.is_disconnected()`.
 
+#### Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum
+size in bytes of a request body. Requests going over it get a `413` response with the
+body `Content Too Large`. The default `None` means no limit.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+The application's limit applies to everything. A limit set on an inner router, mount or route
+replaces the outer one for that part of the tree, so it can raise or lower it. A request
+that matches no route, or no method of a route, is held to the application's limit.
+
+The limit counts the body bytes received from the server, multipart file data and
+encoding overhead included. A `Content-Length` over the limit is rejected as soon as
+routing has decided which limit applies, before the endpoint runs; without or with an
+understated header, the request is stopped when the limit is crossed. For use outside of
+Starlette applications, see [`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
 #### Request Files
 
 Request files are normally sent as multipart form data (`multipart/form-data`).
