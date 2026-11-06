@@ -174,3 +174,38 @@ using `request.state`.
 For example:
 
 `request.state.time_started = time.time()`
+
+## Request body size
+
+A client can stream a huge body, and nothing stops `await request.json()` from buffering it.
+Set `max_body_size` (in bytes) to reject requests that are too large with a `413` response:
+
+```python
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=50 * 1024 * 1024),
+        Mount("/api", routes=api_routes, max_body_size=1024),
+    ],
+    max_body_size=64 * 1024,
+)
+```
+
+The option is available on `Starlette`, `Router`, `Mount` and `Route`, and defaults to `None` (no limit).
+The application limit applies to every request. A limit set on an inner router, mount or route overrides the
+outer one for that part of the tree, so it can raise or lower the application-wide limit.
+
+The limit counts the body bytes received from the server, including multipart file data and encoding overhead.
+A `Content-Length` header over the limit is rejected once the limit that applies is known, so the matched
+endpoint does not run, but a missing or understated header does not let a larger body through. Temporary
+files created while parsing a multipart request are closed when the limit is crossed.
+
+A `Mount` (or `Host`) sees through middleware that keeps the next app in an `app` attribute, and finds routers,
+routes and Starlette applications behind it, so limits set there can raise or lower the outer one. For any other
+mounted ASGI app, whose internals are unknown, the outer limit is a ceiling: an inner limit may lower it but not
+raise it, and an over-limit `Content-Length` is rejected before that app runs.
+
+The same limit is available for any ASGI application with
+[`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
