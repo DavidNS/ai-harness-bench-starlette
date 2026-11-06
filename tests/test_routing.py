@@ -1180,3 +1180,13 @@ def test_paths_with_root_path(test_client_factory: TestClientFactory) -> None:
         "path": "/root/root-queue/path",
         "root_path": "/root",
     }
+
+
+def test_max_body_size_option_validation() -> None:
+    for factory in (
+        lambda: Route("/", homepage, max_body_size=-1),
+        lambda: Mount("/m", routes=[], max_body_size=-1),
+        lambda: Router(max_body_size=-1),
+    ):
+        with pytest.raises(AssertionError, match="max_body_size"):
+            factory()

@@ -146,6 +146,22 @@ routes = [
 app = Starlette(routes=routes)
 ```
 
+## Limiting the request body size
+
+`Starlette`, `Router`, `Mount` and `Route` accept a `max_body_size` option, the maximum
+size in bytes of the request body. By default there is no limit. A limit set on an inner
+router, mount or route overrides the outer one, so it can raise or lower it. A larger body
+gets a `413` response. See [`RequestBodyLimitMiddleware`](middleware.md#requestbodylimitmiddleware).
+
+```python
+routes = [
+    Route("/upload", upload, methods=["POST"], max_body_size=100 * 1024 * 1024),
+    Mount("/api", routes=api_routes, max_body_size=64 * 1024),
+]
+
+app = Starlette(routes=routes, max_body_size=1024 * 1024)
+```
+
 ## Reverse URL lookups
 
 You'll often want to be able to generate the URL for a particular route,

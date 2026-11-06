@@ -208,6 +208,51 @@ hostname either use `allowed_hosts=["*"]` or omit the middleware.
 
 If an incoming request does not validate correctly then a 400 response will be sent.
 
+## RequestBodyLimitMiddleware
+
+Limits the total size of the HTTP request body. A request with a larger body gets a
+`413` response with the plain-text body `Content Too Large`. It can be applied to
+Starlette or to any other ASGI application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+app = RequestBodyLimitMiddleware(Starlette(routes=routes), max_body_size=1024 * 1024)
+```
+
+The following argument is supported:
+
+* `max_body_size` - The maximum number of body bytes, as an integer. `None` means no limit.
+
+The limit counts the bytes actually received from the ASGI server, including multipart
+file data and encoding overhead, so an absent or understated `Content-Length` header does
+not let a larger body through. Requests without a body, websockets and lifespan are not affected.
+
+* If the application reads the body past the limit, the read raises
+`starlette.middleware.body_limit.RequestBodyTooLarge` and the middleware sends the `413` response.
+* If the application has already started its response, no second response is sent: the
+response is cut off and the body stream stays stopped.
+* A `Content-Length` header over the limit is rejected without reading the body, as soon
+as the limit that applies is known: on the first read of the body, or, inside a Starlette
+application, as soon as routing has chosen the route, so its endpoint does not run.
+
+In a Starlette application the limit can also be set with the `max_body_size` option of
+`Starlette`, `Router`, `Mount` and `Route`. A limit set on an inner router, mount or route
+overrides the outer one for that part of the application, so it can raise or lower it:
+
+```python
+app = Starlette(
+    routes=[
+        Route("/upload", upload, methods=["POST"], max_body_size=100 * 1024 * 1024),
+        Route("/api", api, methods=["POST"]),
+    ],
+    max_body_size=1024 * 1024,
+)
+```
+
+An outer limit applies to anything that reads the body before routing, such as a middleware.
+
 ## GZipMiddleware
 
 Handles GZip responses for any request that includes `"gzip"` in the `Accept-Encoding` header.
