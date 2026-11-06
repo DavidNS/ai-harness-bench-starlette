@@ -20,6 +20,7 @@ from starlette.convertors import CONVERTOR_TYPES, Convertor
 from starlette.datastructures import URL, Headers, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
+from starlette.middleware.body_limit import check_content_length, limit_body
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
@@ -203,12 +204,15 @@ class Route(BaseRoute):
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path.startswith("/"), "Routed paths must start with '/'"
+        assert max_body_size is None or max_body_size >= 0, "'max_body_size' must not be negative"
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name
         self.include_in_schema = include_in_schema
+        self.max_body_size = max_body_size
 
         endpoint_handler = endpoint
         while isinstance(endpoint_handler, functools.partial):
@@ -273,7 +277,13 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405, headers=headers)
             await response(scope, receive, send)
         else:
-            await self.app(scope, receive, send)
+            await limit_body(self._decided_app, scope, receive, send, self.max_body_size)
+
+    async def _decided_app(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # The route is final, so is the limit that applies: reject a too large
+        # `Content-Length` before the endpoint runs.
+        check_content_length(scope)
+        await self.app(scope, receive, send)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -365,8 +375,11 @@ class Mount(BaseRoute):
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
+        assert max_body_size is None or max_body_size >= 0, "'max_body_size' must not be negative"
+        self.max_body_size = max_body_size
         assert app is not None or routes is not None, "Either 'app=...', or 'routes=' must be specified"
         self.path = path.rstrip("/")
         if app is not None:
@@ -445,7 +458,7 @@ class Mount(BaseRoute):
         raise NoMatchFound(name, path_params)
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
-        await self.app(scope, receive, send)
+        await limit_body(self.app, scope, receive, send, self.max_body_size)
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Mount) and self.path == other.path and self.app == other.app
@@ -574,7 +587,10 @@ class Router:
         lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
+        max_body_size: int | None = None,
     ) -> None:
+        assert max_body_size is None or max_body_size >= 0, "'max_body_size' must not be negative"
+        self.max_body_size = max_body_size
         self.routes = [] if routes is None else list(routes)
         self.redirect_slashes = redirect_slashes
         self.default = self.not_found if default is None else default
@@ -657,7 +673,7 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        await self.middleware_stack(scope, receive, send)
+        await limit_body(self.middleware_stack, scope, receive, send, self.max_body_size)
 
     async def app(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")

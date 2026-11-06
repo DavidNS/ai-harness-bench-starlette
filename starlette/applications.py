@@ -5,6 +5,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from starlette.datastructures import State, URLPath
 from starlette.middleware import Middleware, _MiddlewareFactory
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
@@ -26,6 +27,8 @@ class Starlette:
         middleware: Sequence[Middleware] | None = None,
         exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
         lifespan: Lifespan[AppType] | None = None,
+        *,
+        max_body_size: int | None = None,
     ) -> None:
         """Initializes the application.
 
@@ -46,7 +49,13 @@ class Starlette:
             lifespan: A lifespan context function, which can be used to perform
                 startup and shutdown tasks. This is a newer style that replaces the
                 `on_startup` and `on_shutdown` handlers. Use one or the other, not both.
+            max_body_size: The maximum size in bytes of a request body, for the whole
+                application. A larger body gets a 413 response. A limit set on a `Mount`,
+                `Route` or `Router` overrides this one for that part of the application.
+                `None` means no limit.
         """
+        assert max_body_size is None or max_body_size >= 0, "'max_body_size' must not be negative"
+        self.max_body_size = max_body_size
         self.debug = debug
         self.state = State()
         self.router = Router(routes, lifespan=lifespan)
@@ -72,6 +81,9 @@ class Starlette:
         )
 
         app = self.router
+        if self.max_body_size is not None:
+            # Outermost, so that the body is counted whatever the other middleware do with it.
+            middleware.insert(0, Middleware(RequestBodyLimitMiddleware, max_body_size=self.max_body_size))
         for cls, args, kwargs in reversed(middleware):
             app = cls(app, *args, **kwargs)
         return app

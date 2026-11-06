@@ -17,7 +17,7 @@ from starlette.datastructures import Headers, UploadFile
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser, _user_safe_decode
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount
+from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 from tests.types import TestClientFactory
 
@@ -986,3 +986,100 @@ def test_multipart_closes_tempfile_on_oserror(
         client.post("/", content=content, headers=headers)
 
     assert close_called
+
+
+def _multipart_content(boundary: str, file_size: int) -> bytes:
+    return (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+        f"Content-Type: text/plain\r\n\r\n"
+        f"{'x' * file_size}\r\n"
+        f"--{boundary}--\r\n"
+    ).encode()
+
+
+def test_multipart_body_limit_counts_encoding_overhead(test_client_factory: TestClientFactory) -> None:
+    async def upload(request: Request) -> JSONResponse:
+        async with request.form() as form:
+            file = form["file"]
+            assert isinstance(file, UploadFile)
+            return JSONResponse({"size": file.size})
+
+    boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    content = _multipart_content(boundary, 10)
+    app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=len(content))
+    client = test_client_factory(app)
+    assert client.post("/", content=content, headers=headers).json() == {"size": 10}
+    # The file itself is under the limit, but the whole body is not.
+    response = client.post("/", content=_multipart_content(boundary, 11), headers=headers)
+    assert (response.status_code, response.text) == (413, "Content Too Large")
+
+
+def test_multipart_closes_tempfiles_when_body_limit_is_crossed() -> None:
+    closed: list[bool] = []
+
+    class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+        def close(self) -> None:
+            closed.append(True)
+            super().close()
+
+    async def upload(request: Request) -> JSONResponse:
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            await request.form()
+        return JSONResponse({})  # pragma: no cover
+
+    boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+    content = _multipart_content(boundary, 1000)
+    chunks = [content[index : index + 50] for index in range(0, len(content), 50)]
+    messages = [{"type": "http.request", "body": chunk, "more_body": True} for chunk in chunks]
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> Any:
+        return messages.pop(0)
+
+    async def send(message: Any) -> None:
+        sent.append(message)
+
+    # Streamed, without a Content-Length: the file exists when the limit is crossed.
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "headers": [(b"content-type", f"multipart/form-data; boundary={boundary}".encode())],
+    }
+    app = Starlette(routes=[Route("/", upload, methods=["POST"])], max_body_size=300)
+
+    import anyio
+
+    anyio.run(app, scope, receive, send)
+    assert sent[0]["status"] == 413
+    assert len(messages) < len(chunks) - 1
+    assert closed == [True]
+
+
+def test_multipart_closes_tempfiles_when_interrupted_by_any_exception() -> None:
+    closed: list[bool] = []
+
+    class TrackingSpooledTemporaryFile(SpooledTemporaryFile[bytes]):
+        def close(self) -> None:
+            closed.append(True)
+            super().close()
+
+    boundary = "a7f7ac8d4e2e437c877bb7b8d7cc549c"
+    content = _multipart_content(boundary, 10)
+
+    async def stream() -> AsyncGenerator[bytes, None]:
+        yield content[:-20]
+        raise RuntimeError("interrupted")
+
+    async def parse() -> None:
+        headers = Headers({"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with mock.patch("starlette.formparsers.SpooledTemporaryFile", TrackingSpooledTemporaryFile):
+            await MultiPartParser(headers, stream()).parse()
+
+    import anyio
+
+    with pytest.raises(RuntimeError, match="interrupted"):
+        anyio.run(parse)
+    assert closed == [True]
