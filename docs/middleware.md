@@ -249,6 +249,47 @@ intact, or responses with a `Content-Type` in `exclude_content_types` - by defau
 avoid compressing server-sent events, and already-compressed formats, where compression wastes CPU for no
 gain.
 
+## RequestBodyLimitMiddleware
+
+Rejects HTTP requests whose body is larger than `max_body_size` bytes with a `413` response
+(plain text, `Content Too Large`). It works with any ASGI application.
+
+```python
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+routes = ...
+
+middleware = [Middleware(RequestBodyLimitMiddleware, max_body_size=1024 * 1024)]
+
+app = Starlette(routes=routes, middleware=middleware)
+```
+
+The following arguments are supported:
+
+* `max_body_size` - The maximum size of the request body in bytes. `None` (the default) means no limit.
+
+The limit counts the body bytes actually received from the ASGI server, so multipart file data and
+encoding overhead are included. A `Content-Length` header over the limit is rejected as soon as the limit that applies is known (see below),
+but the header is only a shortcut: a missing or understated header does not let a larger body through.
+If the application has already started its response when the limit is crossed, no second response is sent
+and the body stream is stopped. Websockets and lifespan are not affected.
+
+A declared `Content-Length` is checked as soon as the limit that applies is known. The middleware sees
+through other middleware that keeps the next app in an `app` attribute, and finds routers, routes and Starlette
+applications (also through a `router` attribute). When it wraps one of those, routers, mounts and routes below it
+can override its limit (raise or lower it), and the header is checked against the limit that applies once
+routing has decided, so the middleware itself does not reject an over-limit header up front. For any other app the middleware cannot tell whether the app below will change the limit,
+so it treats that app as a leaf: its limit is a **ceiling**. The header is checked right away, and an inner
+`max_body_size` may lower the limit but never raise it, so a request gets the same answer with or without the
+header. If you need an inner limit to raise it, place the middleware (or the `max_body_size` option) so that the
+router is reachable through `app` attributes, or set the limit on the inner layer only.
+
+The `max_body_size` option of `Starlette`, `Router`, `Mount` and `Route` (see
+[Request body size](requests.md#request-body-size)) is usually more convenient, because it can be set
+differently for parts of the application.
+
 ## BaseHTTPMiddleware
 
 An abstract class that allows you to write ASGI middleware against a request/response
